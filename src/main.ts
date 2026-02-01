@@ -3,6 +3,7 @@ import path from 'path';
 import { fileURLToPath } from 'url';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
+const isDev = !app.isPackaged;
 
 let mainWindow: BrowserWindow | null;
 
@@ -11,17 +12,18 @@ function createWindow(): void {
     width: 1200,
     height: 800,
     webPreferences: {
-      preload: path.join(__dirname, 'preload.ts'),
+      preload: path.join(__dirname, 'preload.js'),
       nodeIntegration: false,
       contextIsolation: true,
     },
   });
 
-  // Load the index.html
-  mainWindow.loadFile('index.html');
-
-  // Open DevTools in development (comment out for production)
-  mainWindow.webContents.openDevTools();
+  if (isDev) {
+    mainWindow.loadURL('http://localhost:5173');
+    mainWindow.webContents.openDevTools();
+  } else {
+    mainWindow.loadFile(path.join(__dirname, '../dist-renderer/index.html'));
+  }
 
   mainWindow.on('closed', () => {
     mainWindow = null;
