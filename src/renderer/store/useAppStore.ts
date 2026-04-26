@@ -10,7 +10,7 @@ type AppState = {
 
 export const useAppStore = create<AppState>((set) => ({
   clicks: 0,
-  title: 'MemCards Desktop',
+  title: 'electron-skeleton',
   increment: () => set((state) => ({ clicks: state.clicks + 1 })),
   reset: () => set({ clicks: 0 }),
   setTitle: (title) => set({ title }),
