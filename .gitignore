@@ -41,7 +41,7 @@ Thumbs.db
 # Electron build output
 release/
 dist/
-dis-renderer/
+dist-renderer/
 *.dmg
 *.exe
 *.zip
