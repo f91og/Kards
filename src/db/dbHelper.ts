@@ -3,12 +3,14 @@ import path from 'path';
 import { app } from 'electron';
 import { v4 as uuidv4 } from 'uuid';
 import {
+  serializeTags,
   cardRowToModel,
   cardRowsToModels,
   type Card,
   type CardRow,
   type CardUpdate,
   type NewCard,
+  type WindowBoundsState,
 } from '../shared/models/card.js';
 
 const DB_NAME = 'memcards.db';
@@ -39,9 +41,31 @@ function initSchema(database: DatabaseInstance): void {
     created_at TEXT NOT NULL UNIQUE,
     updated_at TEXT,
     is_hidden INTEGER DEFAULT 0,
-    sort_order INTEGER DEFAULT 0
+    sort_order INTEGER DEFAULT 0,
+    editor_height INTEGER DEFAULT 160,
+    is_collapsed INTEGER DEFAULT 0
+  );`;
+  const settingsStmt = `
+  CREATE TABLE IF NOT EXISTS app_settings (
+    key TEXT PRIMARY KEY,
+    value TEXT NOT NULL
   );`;
   database.prepare(createStmt).run();
+  database.prepare(settingsStmt).run();
+  ensureColumn(database, 'cards', 'editor_height', 'INTEGER DEFAULT 160');
+  ensureColumn(database, 'cards', 'is_collapsed', 'INTEGER DEFAULT 0');
+}
+
+function ensureColumn(
+  database: DatabaseInstance,
+  tableName: string,
+  columnName: string,
+  columnDefinition: string,
+): void {
+  const columns = database.prepare(`PRAGMA table_info(${tableName})`).all() as Array<{ name: string }>;
+  const hasColumn = columns.some((column) => column.name === columnName);
+  if (hasColumn) return;
+  database.prepare(`ALTER TABLE ${tableName} ADD COLUMN ${columnName} ${columnDefinition}`).run();
 }
 
 export function getAllCards(): Card[] {
@@ -84,19 +108,22 @@ export function insertCard(card: NewCard): string {
   const d = openDB();
   const generatedId = card.id ?? uuidv4();
   const createdAt = card.createdAt ?? new Date().toISOString();
+  const updatedAt = card.updatedAt ?? createdAt;
   const stmt = d.prepare(
-    'INSERT INTO cards (id,title,content,tags,created_at,updated_at,is_hidden,sort_order) VALUES (?,?,?,?,?,?,?,?)',
+    'INSERT INTO cards (id,title,content,tags,created_at,updated_at,is_hidden,sort_order,editor_height,is_collapsed) VALUES (?,?,?,?,?,?,?,?,?,?)',
   );
   try {
     stmt.run(
       generatedId,
       card.title,
       card.content,
-      card.tags ?? '',
+      serializeTags(card.tags ?? []),
       createdAt,
-      card.updatedAt ?? null,
-      card.isHidden ? 1 : 0,
-      card.sortOrder ?? 0,
+      updatedAt,
+      card.isArchived ? 1 : 0,
+      card.position ?? 0,
+      card.editorHeight ?? 160,
+      card.isCollapsed ? 1 : 0,
     );
     return generatedId;
   } catch (e: any) {
@@ -109,20 +136,56 @@ export function insertCard(card: NewCard): string {
 
 export function updateCard(card: CardUpdate): number {
   const d = openDB();
+  const existingCard = getCardById(card.id);
+  if (!existingCard) return 0;
+  if (card.updatedAt && card.updatedAt < existingCard.updatedAt) return 0;
+
   const stmt = d.prepare(
-    'UPDATE cards SET title = ?, content = ?, tags = ?, created_at = ?, updated_at = ?, is_hidden = ?, sort_order = ? WHERE id = ?',
+    'UPDATE cards SET title = ?, content = ?, tags = ?, created_at = ?, updated_at = ?, is_hidden = ?, sort_order = ?, editor_height = ?, is_collapsed = ? WHERE id = ?',
   );
   const info = stmt.run(
     card.title,
     card.content,
-    card.tags,
-    card.createdAt,
-    card.updatedAt ?? null,
-    card.isHidden ? 1 : 0,
-    card.sortOrder,
+    serializeTags(card.tags),
+    existingCard.createdAt,
+    card.updatedAt ?? new Date().toISOString(),
+    card.isArchived ? 1 : 0,
+    card.position,
+    card.editorHeight,
+    card.isCollapsed ? 1 : 0,
     card.id,
   );
   return info.changes;
+}
+
+export function saveWindowBounds(bounds: WindowBoundsState): void {
+  const d = openDB();
+  d.prepare(
+    'INSERT INTO app_settings (key, value) VALUES (?, ?) ON CONFLICT(key) DO UPDATE SET value = excluded.value',
+  ).run('window_bounds', JSON.stringify(bounds));
+}
+
+export function getWindowBounds(): WindowBoundsState | null {
+  const d = openDB();
+  const row = d.prepare('SELECT value FROM app_settings WHERE key = ?').get('window_bounds') as
+    | { value: string }
+    | undefined;
+
+  if (!row) return null;
+
+  try {
+    const parsed = JSON.parse(row.value) as Partial<WindowBoundsState>;
+    if (typeof parsed.width === 'number' && typeof parsed.height === 'number') {
+      return {
+        width: parsed.width,
+        height: parsed.height,
+      };
+    }
+  } catch {
+    // Ignore malformed persisted settings and fall back to defaults.
+  }
+
+  return null;
 }
 
 export function deleteCard(id: string): number {
