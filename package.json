@@ -1,6 +1,7 @@
 {
   "name": "kards",
-  "version": "1.0.0",
+  "version": "1.0.2",
+  "productName": "Kards",
   "description": "",
   "main": "dist/main.js",
   "scripts": {
@@ -9,6 +10,7 @@
     "dev:renderer": "vite",
     "build": "npm run typecheck && npm run build:main && vite build",
     "build:main": "tsc src/main.ts src/preload.cts --outDir dist --module nodenext",
+    "dist:mac": "npm run build && CSC_IDENTITY_AUTO_DISCOVERY=false ELECTRON_BUILDER_CACHE=/tmp/electron-builder-cache npm_config_devdir=/tmp/.electron-gyp electron-builder --mac dmg zip --publish never",
     "typecheck": "tsc --noEmit",
     "start": "npm run build && electron .",
     "test": "echo \"Error: no test specified\" && exit 1"
@@ -40,9 +42,37 @@
     "autoprefixer": "^10.4.0",
     "concurrently": "^8.2.0",
     "electron": "^40.1.0",
+    "electron-builder": "^26.8.1",
+    "icon-gen": "^5.0.0",
     "postcss": "^8.4.0",
     "tailwindcss": "^3.3.0",
     "typescript": "^5.3.0",
     "vite": "^5.0.0"
+  },
+  "build": {
+    "appId": "com.xueyu.kards",
+    "afterPack": "build/afterPack.cjs",
+    "directories": {
+      "output": "release"
+    },
+    "asarUnpack": [
+      "**/*.node"
+    ],
+    "files": [
+      "dist/**",
+      "dist-renderer/**",
+      "node_modules/**",
+      "package.json"
+    ],
+    "mac": {
+      "artifactName": "${productName}-${version}-${arch}.${ext}",
+      "category": "public.app-category.productivity",
+      "icon": "build/icon.icns",
+      "identity": null,
+      "target": [
+        "dmg",
+        "zip"
+      ]
+    }
   }
 }

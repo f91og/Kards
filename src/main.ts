@@ -1,11 +1,12 @@
-import { app, BrowserWindow, ipcMain } from 'electron';
+import { app, BrowserWindow, ipcMain, screen } from 'electron';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import {
   closeDB,
   deleteCard,
-  getAllCards,
   getCardById,
+  getCardsPage,
+  getAllCards,
   getWindowBounds,
   insertCard,
   saveWindowBounds,
@@ -16,6 +17,7 @@ import type { Card, CardUpdate } from './shared/models/card.js';
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const isDev = !app.isPackaged;
 const WINDOW_BOUNDS_SAVE_DELAY_MS = 200;
+const DEFAULT_EDITOR_HEIGHT = 48;
 
 let mainWindow: BrowserWindow | null;
 let windowBoundsSaveTimeout: NodeJS.Timeout | null = null;
@@ -26,7 +28,7 @@ function createDefaultCard(position: number = 1): Card | null {
     content: '',
     tags: [],
     position,
-    editorHeight: 160,
+    editorHeight: DEFAULT_EDITOR_HEIGHT,
     isCollapsed: false,
   });
   return getCardById(id);
@@ -44,7 +46,7 @@ function getOrCreateCards(): Card[] {
         content: '',
         tags: ['react', 'frontend'],
         position: 1,
-        editorHeight: 160,
+        editorHeight: DEFAULT_EDITOR_HEIGHT,
         isCollapsed: false,
       });
       return getCardById(id);
@@ -137,8 +139,64 @@ ipcMain.handle('window:get-pin-state', (event) => {
   return window.isAlwaysOnTop();
 });
 
-ipcMain.handle('cards:list', () => {
-  return getOrCreateCards();
+ipcMain.handle('window:get-bounds', (event) => {
+  const window = BrowserWindow.fromWebContents(event.sender);
+  if (!window) return null;
+
+  const { x, y, width, height } = window.getBounds();
+  return { x, y, width, height };
+});
+
+ipcMain.handle('window:set-opacity', (event, opacity: number) => {
+  const window = BrowserWindow.fromWebContents(event.sender);
+  if (!window) return 1;
+
+  const nextOpacity = Math.min(Math.max(opacity, 0.35), 1);
+  window.setOpacity(nextOpacity);
+  return window.getOpacity();
+});
+
+ipcMain.handle('window:set-bounds', (event, bounds: { width: number; height: number; x?: number; y?: number }) => {
+  const window = BrowserWindow.fromWebContents(event.sender);
+  if (!window) return null;
+
+  const currentBounds = window.getBounds();
+  const targetDisplay = screen.getDisplayMatching(currentBounds);
+  const { x: workX, y: workY, width: workWidth, height: workHeight } = targetDisplay.workArea;
+  const nextWidth = Math.min(Math.round(bounds.width), workWidth);
+  const nextHeight = Math.min(Math.round(bounds.height), workHeight);
+  const requestedX =
+    typeof bounds.x === 'number'
+      ? Math.round(bounds.x)
+      : currentBounds.x;
+  const requestedY =
+    typeof bounds.y === 'number'
+      ? Math.round(bounds.y)
+      : currentBounds.y;
+  const nextX = Math.min(Math.max(requestedX, workX), workX + workWidth - nextWidth);
+  const nextY = Math.min(Math.max(requestedY, workY), workY + workHeight - nextHeight);
+
+  window.setBounds({
+    x: nextX,
+    y: nextY,
+    width: nextWidth,
+    height: nextHeight,
+  });
+
+  if (!window.isMinimized() && !window.isMaximized()) {
+    scheduleWindowBoundsSave(window);
+  }
+
+  return window.getBounds();
+});
+
+ipcMain.handle('cards:list', (_event, options?: { limit?: number; offset?: number; keyword?: string | null }) => {
+  const cards = getAllCards();
+  if (cards.length === 0) {
+    getOrCreateCards();
+  }
+
+  return getCardsPage(options?.limit ?? 20, options?.offset ?? 0, options?.keyword);
 });
 
 ipcMain.handle('cards:create', () => {
@@ -154,7 +212,8 @@ ipcMain.handle('cards:update', (_event, card: CardUpdate) => {
 ipcMain.handle('cards:delete', (_event, id: string) => {
   deleteCard(id);
   const nextCards = getAllCards();
-  return nextCards.length > 0 ? nextCards : [createDefaultCard(1)].filter((card): card is Card => card !== null);
+  if (nextCards.length > 0) return null;
+  return createDefaultCard(1);
 });
 
 app.on('ready', createWindow);

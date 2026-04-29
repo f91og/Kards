@@ -1,11 +1,17 @@
 import { create } from 'zustand';
 import { buildCardExcerpt, type Card } from '../../shared/models/card';
 
+const CARDS_PAGE_SIZE = 20;
+
 type AppState = {
   cards: Card[];
   titleErrors: Record<string, string | undefined>;
   searchQuery: string;
+  hasMoreCards: boolean;
+  isHydratingCards: boolean;
+  isLoadingMoreCards: boolean;
   hydrateCards: () => Promise<void>;
+  loadMoreCards: () => Promise<void>;
   addCard: () => Promise<void>;
   updateCardTitle: (id: string, title: string) => Promise<void>;
   validateCardTitle: (id: string) => Promise<boolean>;
@@ -17,6 +23,11 @@ type AppState = {
   setSearchQuery: (searchQuery: string) => void;
 };
 
+type PaginationState = {
+  loadedCount: number;
+  activeKeyword: string;
+};
+
 function sortCards(cards: Card[]): Card[] {
   return [...cards].sort((left, right) => right.position - left.position || right.createdAt.localeCompare(left.createdAt));
 }
@@ -26,11 +37,39 @@ function findCard(cards: Card[], id: string): Card | undefined {
 }
 
 function mergeCard(cards: Card[], nextCard: Card): Card[] {
+  const hasCard = cards.some((card) => card.id === nextCard.id);
+  if (!hasCard) return sortCards([nextCard, ...cards]);
   return sortCards(cards.map((card) => (card.id === nextCard.id ? nextCard : card)));
+}
+
+function normalizeKeyword(keyword: string): string {
+  return keyword.trim();
+}
+
+function matchesSearch(card: Card, keyword: string): boolean {
+  const normalizedKeyword = normalizeKeyword(keyword).toLocaleLowerCase();
+  if (normalizedKeyword === '') return true;
+
+  const haystack = [card.title, card.tags.join(' '), card.excerpt].join(' ').toLocaleLowerCase();
+  return haystack.includes(normalizedKeyword);
+}
+
+async function fetchCardsPage(offset: number, keyword: string): Promise<Card[]> {
+  if (!window.kardsCards) return [];
+
+  return window.kardsCards.list({
+    limit: CARDS_PAGE_SIZE,
+    offset,
+    keyword,
+  });
 }
 
 const latestPersistRequestByCardId: Record<string, number> = {};
 let nextPersistRequestId = 1;
+const paginationState: PaginationState = {
+  loadedCount: 0,
+  activeKeyword: '',
+};
 
 async function persistCard(card: Card): Promise<Card | null> {
   if (!window.kardsCards) return null;
@@ -45,6 +84,57 @@ async function persistCard(card: Card): Promise<Card | null> {
     position: card.position,
     editorHeight: card.editorHeight,
     isCollapsed: card.isCollapsed,
+  });
+}
+
+function syncLoadedCount(cards: Card[]): void {
+  paginationState.loadedCount = cards.length;
+}
+
+async function refreshCards(
+  set: (fn: (state: AppState) => Partial<AppState>) => void,
+  get: () => AppState,
+  mode: 'reset' | 'append',
+): Promise<void> {
+  const keyword = normalizeKeyword(get().searchQuery);
+
+  if (mode === 'reset') {
+    paginationState.activeKeyword = keyword;
+    paginationState.loadedCount = 0;
+    set(() => ({
+      cards: [],
+      hasMoreCards: true,
+      isHydratingCards: true,
+    }));
+  } else {
+    if (get().isLoadingMoreCards || !get().hasMoreCards) return;
+    paginationState.activeKeyword = keyword;
+    set(() => ({
+      isLoadingMoreCards: true,
+    }));
+  }
+
+  const currentOffset = mode === 'reset' ? 0 : paginationState.loadedCount;
+  const nextCards = await fetchCardsPage(currentOffset, keyword);
+
+  if (paginationState.activeKeyword !== keyword) {
+    set(() => ({
+      isHydratingCards: false,
+      isLoadingMoreCards: false,
+    }));
+    return;
+  }
+
+  set((state) => {
+    const cards = mode === 'reset' ? nextCards : sortCards([...state.cards, ...nextCards]);
+    syncLoadedCount(cards);
+
+    return {
+      cards,
+      hasMoreCards: nextCards.length === CARDS_PAGE_SIZE,
+      isHydratingCards: false,
+      isLoadingMoreCards: false,
+    };
   });
 }
 
@@ -64,40 +154,63 @@ async function updatePersistedCard(
   const requestId = nextPersistRequestId++;
   latestPersistRequestByCardId[id] = requestId;
 
-  set((state) => ({
-    cards: mergeCard(state.cards, optimisticCard),
-  }));
+  set((state) => {
+    const nextCards = mergeCard(state.cards, optimisticCard).filter((card) => matchesSearch(card, state.searchQuery));
+    syncLoadedCount(nextCards);
+
+    return {
+      cards: nextCards,
+    };
+  });
 
   const persistedCard = await persistCard(optimisticCard);
   if (!persistedCard) return;
   if (latestPersistRequestByCardId[id] !== requestId) return;
 
-  set((state) => ({
-    cards: mergeCard(state.cards, persistedCard),
-  }));
+  set((state) => {
+    const nextCards = matchesSearch(persistedCard, state.searchQuery)
+      ? mergeCard(state.cards, persistedCard)
+      : state.cards.filter((card) => card.id !== persistedCard.id);
+    syncLoadedCount(nextCards);
+
+    return {
+      cards: nextCards,
+    };
+  });
 }
 
 export const useAppStore = create<AppState>((set, get) => ({
   cards: [],
   titleErrors: {},
   searchQuery: '',
+  hasMoreCards: true,
+  isHydratingCards: false,
+  isLoadingMoreCards: false,
   hydrateCards: async () => {
-    if (!window.kardsCards) return;
-    const cards = await window.kardsCards.list();
-    set({ cards: sortCards(cards) });
+    await refreshCards(set, get, 'reset');
+  },
+  loadMoreCards: async () => {
+    await refreshCards(set, get, 'append');
   },
   addCard: async () => {
     if (!window.kardsCards) return;
     const card = await window.kardsCards.create();
     if (!card) return;
 
-    set((state) => ({
-      cards: sortCards([card, ...state.cards]),
-      titleErrors: {
-        ...state.titleErrors,
-        [card.id]: undefined,
-      },
-    }));
+    if (!matchesSearch(card, get().searchQuery)) return;
+
+    set((state) => {
+      const nextCards = sortCards([card, ...state.cards]);
+      syncLoadedCount(nextCards);
+
+      return {
+        cards: nextCards,
+        titleErrors: {
+          ...state.titleErrors,
+          [card.id]: undefined,
+        },
+      };
+    });
   },
   updateCardTitle: async (id, title) => {
     set((state) => ({
@@ -173,14 +286,31 @@ export const useAppStore = create<AppState>((set, get) => ({
   },
   removeCard: async (id) => {
     if (!window.kardsCards) return;
-    const cards = await window.kardsCards.delete(id);
-    set((state) => ({
-      cards: sortCards(cards),
-      titleErrors: {
-        ...state.titleErrors,
-        [id]: undefined,
-      },
-    }));
+    const fallbackCard = await window.kardsCards.delete(id);
+
+    set((state) => {
+      const filteredCards = state.cards.filter((card) => card.id !== id);
+      const nextCards =
+        fallbackCard && matchesSearch(fallbackCard, state.searchQuery) ? sortCards([fallbackCard, ...filteredCards]) : filteredCards;
+      syncLoadedCount(nextCards);
+
+      return {
+        cards: nextCards,
+        titleErrors: {
+          ...state.titleErrors,
+          [id]: undefined,
+        },
+      };
+    });
+
+    const stateAfterDelete = get();
+    if (fallbackCard || !stateAfterDelete.hasMoreCards) return;
+    if (stateAfterDelete.cards.length === 0) {
+      await refreshCards(set, get, 'reset');
+      return;
+    }
+
+    await refreshCards(set, get, 'append');
   },
   setSearchQuery: (searchQuery) => set({ searchQuery }),
 }));

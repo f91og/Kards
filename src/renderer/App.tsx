@@ -2,23 +2,62 @@ import { CardItem } from '@/components/CardItem';
 import { useAppStore } from '@/store/useAppStore';
 import { useEffect, useMemo, useRef, useState } from 'react';
 
+type PoppedCardMode = 'medium' | 'large';
+const DEFAULT_TITLE_FONT_SIZE_REM = 0.7;
+const DEFAULT_CONTENT_FONT_SIZE_REM = 0.94;
+const DEFAULT_WINDOW_OPACITY = 1;
+const WINDOW_OPACITY_STORAGE_KEY = 'kards-window-opacity-v2';
+
 export default function App() {
+  const previousWindowBoundsRef = useRef<KardsWindowBounds | null>(null);
+  const noticeTimeoutRef = useRef<number | null>(null);
+  const loadMoreRef = useRef<HTMLDivElement | null>(null);
   const searchRef = useRef<HTMLDivElement | null>(null);
   const searchInputRef = useRef<HTMLInputElement | null>(null);
+  const settingsRef = useRef<HTMLDivElement | null>(null);
   const [isSearchFocused, setIsSearchFocused] = useState(false);
   const [isPinned, setIsPinned] = useState(false);
+  const [isSettingsOpen, setIsSettingsOpen] = useState(false);
+  const [noticeMessage, setNoticeMessage] = useState<string | null>(null);
   const [selectedCardId, setSelectedCardId] = useState<string | null>(null);
   const [editingCardId, setEditingCardId] = useState<string | null>(null);
+  const [poppedCardId, setPoppedCardId] = useState<string | null>(null);
+  const [poppedCardMode, setPoppedCardMode] = useState<PoppedCardMode | null>(null);
   const [themeMode, setThemeMode] = useState<'light' | 'dark'>(() => {
     if (typeof window === 'undefined') return 'light';
     return window.localStorage.getItem('kards-theme') === 'dark' ? 'dark' : 'light';
+  });
+  const [titleFontSize, setTitleFontSize] = useState<number>(() => {
+    if (typeof window === 'undefined') return DEFAULT_TITLE_FONT_SIZE_REM;
+    const rawStoredValue = window.localStorage.getItem('kards-title-font-size');
+    if (rawStoredValue === null) return DEFAULT_TITLE_FONT_SIZE_REM;
+    const storedValue = Number(rawStoredValue);
+    return Number.isFinite(storedValue) ? storedValue : DEFAULT_TITLE_FONT_SIZE_REM;
+  });
+  const [contentFontSize, setContentFontSize] = useState<number>(() => {
+    if (typeof window === 'undefined') return DEFAULT_CONTENT_FONT_SIZE_REM;
+    const rawStoredValue = window.localStorage.getItem('kards-content-font-size');
+    if (rawStoredValue === null) return DEFAULT_CONTENT_FONT_SIZE_REM;
+    const storedValue = Number(rawStoredValue);
+    return Number.isFinite(storedValue) ? storedValue : DEFAULT_CONTENT_FONT_SIZE_REM;
+  });
+  const [windowOpacity, setWindowOpacity] = useState<number>(() => {
+    if (typeof window === 'undefined') return DEFAULT_WINDOW_OPACITY;
+    const rawStoredValue = window.localStorage.getItem(WINDOW_OPACITY_STORAGE_KEY);
+    if (rawStoredValue === null) return DEFAULT_WINDOW_OPACITY;
+    const storedValue = Number(rawStoredValue);
+    return Number.isFinite(storedValue) ? storedValue : DEFAULT_WINDOW_OPACITY;
   });
   const {
     cards,
     titleErrors,
     searchQuery,
+    hasMoreCards,
+    isHydratingCards,
+    isLoadingMoreCards,
     setSearchQuery,
     hydrateCards,
+    loadMoreCards,
     addCard,
     updateCardTitle,
     validateCardTitle,
@@ -43,14 +82,22 @@ export default function App() {
 
     return Array.from(dedupedTags.values()).sort((left, right) => left.localeCompare(right));
   }, [cards]);
-  const visibleCards =
-    normalizedQuery === ''
-      ? cards
-      : cards.filter((card) => {
-          const haystack = [card.title, card.tags.join(' '), card.excerpt].join(' ').toLocaleLowerCase();
-          return haystack.includes(normalizedQuery);
-        });
+  const visibleCards = cards;
+  const poppedCard = poppedCardId ? cards.find((card) => card.id === poppedCardId) ?? null : null;
+  const listCards = poppedCardId ? visibleCards.filter((card) => card.id !== poppedCardId) : visibleCards;
   const showTagDropdown = isSearchFocused && normalizedQuery === '' && allTags.length > 0;
+  const selectedCard = selectedCardId ? visibleCards.find((card) => card.id === selectedCardId) ?? null : null;
+
+  const showNotice = (message: string) => {
+    setNoticeMessage(message);
+    if (noticeTimeoutRef.current !== null) {
+      window.clearTimeout(noticeTimeoutRef.current);
+    }
+    noticeTimeoutRef.current = window.setTimeout(() => {
+      setNoticeMessage(null);
+      noticeTimeoutRef.current = null;
+    }, 2200);
+  };
 
   const selectCard = (cardId: string) => {
     setSelectedCardId(cardId);
@@ -78,6 +125,34 @@ export default function App() {
     }
   };
 
+  const closePoppedCard = () => {
+    setPoppedCardId(null);
+    setPoppedCardMode(null);
+    setEditingCardId(null);
+  };
+
+  const cyclePoppedCard = () => {
+    if (!selectedCardId) return;
+    if (selectedCard?.isCollapsed) {
+      showNotice('Collapsed card cannot be enlarged');
+      return;
+    }
+
+    if (poppedCardId !== selectedCardId) {
+      setPoppedCardId(selectedCardId);
+      setPoppedCardMode('medium');
+      setEditingCardId(selectedCardId);
+      return;
+    }
+
+    if (poppedCardMode === 'medium') {
+      setPoppedCardMode('large');
+      return;
+    }
+
+    closePoppedCard();
+  };
+
   useEffect(() => {
     if (isSearchFocused) {
       setSelectedCardId(null);
@@ -86,9 +161,19 @@ export default function App() {
   }, [isSearchFocused]);
 
   useEffect(() => {
+    return () => {
+      if (noticeTimeoutRef.current !== null) {
+        window.clearTimeout(noticeTimeoutRef.current);
+      }
+    };
+  }, []);
+
+  useEffect(() => {
     if (visibleCards.length === 0) {
       setSelectedCardId(null);
       setEditingCardId(null);
+      setPoppedCardId(null);
+      setPoppedCardMode(null);
       return;
     }
 
@@ -103,11 +188,16 @@ export default function App() {
     if (editingCardId && !visibleCards.some((card) => card.id === editingCardId)) {
       setEditingCardId(null);
     }
-  }, [editingCardId, isSearchFocused, selectedCardId, visibleCards]);
+
+    if (poppedCardId && !cards.some((card) => card.id === poppedCardId)) {
+      setPoppedCardId(null);
+      setPoppedCardMode(null);
+    }
+  }, [cards, editingCardId, isSearchFocused, poppedCardId, selectedCardId, visibleCards]);
 
   useEffect(() => {
     void hydrateCards();
-  }, [hydrateCards]);
+  }, [hydrateCards, normalizedQuery]);
 
   useEffect(() => {
     const handleKeyDown = (event: KeyboardEvent) => {
@@ -127,12 +217,24 @@ export default function App() {
         return;
       }
 
+      if (event.key === 'Escape' && poppedCardId) {
+        event.preventDefault();
+        closePoppedCard();
+        return;
+      }
+
       if (editingCardId || isSearchFocused || visibleCards.length === 0) return;
+      if (event.key === ' ') {
+        event.preventDefault();
+        cyclePoppedCard();
+        return;
+      }
       if (event.key === 'Enter') {
         event.preventDefault();
         void copySelectedCardContent();
         return;
       }
+      if (poppedCardId) return;
       if (!['ArrowDown', 'ArrowUp', 'k', 'i'].includes(event.key)) return;
 
       event.preventDefault();
@@ -151,7 +253,7 @@ export default function App() {
     return () => {
       window.removeEventListener('keydown', handleKeyDown);
     };
-  }, [editingCardId, isSearchFocused, selectedCardId, visibleCards]);
+  }, [editingCardId, isSearchFocused, poppedCardId, poppedCardMode, selectedCard, selectedCardId, visibleCards]);
 
   useEffect(() => {
     if (!window.kardsWindow) {
@@ -168,6 +270,87 @@ export default function App() {
     document.body.dataset.theme = themeMode;
     window.localStorage.setItem('kards-theme', themeMode);
   }, [themeMode]);
+
+  useEffect(() => {
+    document.documentElement.style.setProperty('--card-title-font-size', `${titleFontSize}rem`);
+    window.localStorage.setItem('kards-title-font-size', String(titleFontSize));
+  }, [titleFontSize]);
+
+  useEffect(() => {
+    document.documentElement.style.setProperty('--card-content-font-size', `${contentFontSize}rem`);
+    window.localStorage.setItem('kards-content-font-size', String(contentFontSize));
+  }, [contentFontSize]);
+
+  useEffect(() => {
+    window.localStorage.setItem(WINDOW_OPACITY_STORAGE_KEY, String(windowOpacity));
+    void window.kardsWindow?.setOpacity(windowOpacity);
+  }, [windowOpacity]);
+
+  useEffect(() => {
+    if (!isSettingsOpen) return;
+
+    const handlePointerDown = (event: MouseEvent) => {
+      if (!settingsRef.current?.contains(event.target as Node)) {
+        setIsSettingsOpen(false);
+      }
+    };
+
+    window.addEventListener('mousedown', handlePointerDown);
+    return () => {
+      window.removeEventListener('mousedown', handlePointerDown);
+    };
+  }, [isSettingsOpen]);
+
+  useEffect(() => {
+    if (!window.kardsWindow) return;
+
+    const syncWindowBoundsToPopoutState = async () => {
+      if (poppedCardId && poppedCardMode) {
+        const currentBounds = await window.kardsWindow.getBounds();
+        if (!currentBounds) return;
+
+        if (!previousWindowBoundsRef.current) {
+          previousWindowBoundsRef.current = currentBounds;
+        }
+
+        const minimumBounds =
+          poppedCardMode === 'large'
+            ? { width: 1280, height: 900 }
+            : { width: 1040, height: 760 };
+        const nextWidth = Math.max(currentBounds.width, minimumBounds.width);
+        const nextHeight = Math.max(currentBounds.height, minimumBounds.height);
+
+        if (nextWidth !== currentBounds.width || nextHeight !== currentBounds.height) {
+          await window.kardsWindow.setBounds({ width: nextWidth, height: nextHeight });
+        }
+
+        return;
+      }
+
+      if (previousWindowBoundsRef.current) {
+        await window.kardsWindow.setBounds(previousWindowBoundsRef.current);
+        previousWindowBoundsRef.current = null;
+      }
+    };
+
+    void syncWindowBoundsToPopoutState();
+  }, [poppedCardId, poppedCardMode]);
+
+  useEffect(() => {
+    const loadMoreNode = loadMoreRef.current;
+    if (!loadMoreNode || !hasMoreCards || isHydratingCards || isLoadingMoreCards || poppedCardId) return;
+
+    const observer = new IntersectionObserver((entries) => {
+      const [entry] = entries;
+      if (!entry?.isIntersecting) return;
+      void loadMoreCards();
+    });
+
+    observer.observe(loadMoreNode);
+    return () => {
+      observer.disconnect();
+    };
+  }, [hasMoreCards, isHydratingCards, isLoadingMoreCards, loadMoreCards, poppedCardId, listCards.length]);
 
   return (
     <main className="app-shell">
@@ -226,6 +409,69 @@ export default function App() {
             />
           </svg>
         </button>
+
+        <div ref={settingsRef} className="window-settings">
+          <button
+            type="button"
+            className={`window-titlebar__settings${isSettingsOpen ? ' window-titlebar__settings--active' : ''}`}
+            onClick={() => setIsSettingsOpen((currentState) => !currentState)}
+            aria-label="Open settings"
+            aria-expanded={isSettingsOpen}
+          >
+            <svg viewBox="0 0 16 16" aria-hidden="true" className="window-titlebar__settings-icon">
+              <path
+                d="M6.83 1.98a1 1 0 0 1 1.94 0l.2.8a5.3 5.3 0 0 1 1.03.42l.7-.42a1 1 0 0 1 1.37.37l.5.87a1 1 0 0 1-.23 1.28l-.62.54c.05.28.08.57.08.87s-.03.59-.08.87l.62.54a1 1 0 0 1 .23 1.28l-.5.87a1 1 0 0 1-1.36.37l-.71-.42a5.3 5.3 0 0 1-1.03.42l-.2.8a1 1 0 0 1-1.94 0l-.2-.8a5.3 5.3 0 0 1-1.03-.42l-.7.42a1 1 0 0 1-1.37-.37l-.5-.87a1 1 0 0 1 .23-1.28l.62-.54A5 5 0 0 1 4.1 8c0-.3.03-.59.08-.87l-.62-.54a1 1 0 0 1-.23-1.28l.5-.87a1 1 0 0 1 1.36-.37l.71.42c.33-.18.68-.32 1.03-.42l.2-.8ZM7.8 5.5a2.5 2.5 0 1 0 0 5 2.5 2.5 0 0 0 0-5Z"
+                fill="currentColor"
+              />
+            </svg>
+          </button>
+
+          {isSettingsOpen ? (
+            <div className="window-settings__panel">
+              <label className="window-settings__field">
+                <span className="window-settings__label">Title size</span>
+                <input
+                  className="window-settings__range"
+                  type="range"
+                  min="0.5"
+                  max="1.4"
+                  step="0.02"
+                  value={titleFontSize}
+                  onChange={(event) => setTitleFontSize(Number(event.target.value))}
+                />
+                <span className="window-settings__value">{titleFontSize.toFixed(2)}rem</span>
+              </label>
+
+              <label className="window-settings__field">
+                <span className="window-settings__label">Content size</span>
+                <input
+                  className="window-settings__range"
+                  type="range"
+                  min="0.7"
+                  max="1.4"
+                  step="0.02"
+                  value={contentFontSize}
+                  onChange={(event) => setContentFontSize(Number(event.target.value))}
+                />
+                <span className="window-settings__value">{contentFontSize.toFixed(2)}rem</span>
+              </label>
+
+              <label className="window-settings__field">
+                <span className="window-settings__label">Transparency</span>
+                <input
+                  className="window-settings__range"
+                  type="range"
+                  min="0.35"
+                  max="1"
+                  step="0.01"
+                  value={windowOpacity}
+                  onChange={(event) => setWindowOpacity(Number(event.target.value))}
+                />
+                <span className="window-settings__value">{Math.round(windowOpacity * 100)}%</span>
+              </label>
+            </div>
+          ) : null}
+        </div>
       </header>
 
       <header className="app-header">
@@ -276,7 +522,7 @@ export default function App() {
       </header>
 
       <section className="card-list">
-        {visibleCards.map((card) => (
+        {listCards.map((card) => (
           <CardItem
             key={card.id}
             card={card}
@@ -301,7 +547,58 @@ export default function App() {
             onRemove={removeCard}
           />
         ))}
+
+        {poppedCardId ? null : <div ref={loadMoreRef} className="card-list__sentinel" aria-hidden="true" />}
       </section>
+
+      {poppedCard ? (
+        <div className="card-popout-layer" onMouseDown={() => selectCard(poppedCard.id)}>
+          <div className={`card-popout${poppedCardMode === 'large' ? ' card-popout--large' : ''}`}>
+            <button
+              type="button"
+              className="card-popout__close"
+              onClick={closePoppedCard}
+              aria-label="Close popped card"
+            >
+              <svg viewBox="0 0 16 16" aria-hidden="true" className="card-popout__close-icon">
+                <path
+                  d="M4.22 4.22a.75.75 0 0 1 1.06 0L8 6.94l2.72-2.72a.75.75 0 1 1 1.06 1.06L9.06 8l2.72 2.72a.75.75 0 1 1-1.06 1.06L8 9.06l-2.72 2.72a.75.75 0 1 1-1.06-1.06L6.94 8 4.22 5.28a.75.75 0 0 1 0-1.06Z"
+                  fill="currentColor"
+                />
+              </svg>
+            </button>
+
+            <CardItem
+              key={`${poppedCard.id}-popped`}
+              card={poppedCard}
+              isSelected
+              isEditing={editingCardId === poppedCard.id}
+              isPoppedOut
+              titleError={titleErrors[poppedCard.id]}
+              onSelect={() => selectCard(poppedCard.id)}
+              onStartEditing={() => {
+                selectCard(poppedCard.id);
+                setEditingCardId(poppedCard.id);
+              }}
+              onStopEditing={() => {
+                setEditingCardId((currentEditingCardId) =>
+                  currentEditingCardId === poppedCard.id ? null : currentEditingCardId,
+                );
+              }}
+              onTitleChange={updateCardTitle}
+              onTitleBlur={validateCardTitle}
+              onTagsChange={updateCardTags}
+              onTagClick={setSearchQuery}
+              onContentChange={updateCardContent}
+              onEditorHeightChange={updateCardEditorHeight}
+              onCollapsedChange={updateCardCollapsed}
+              onRemove={removeCard}
+            />
+          </div>
+        </div>
+      ) : null}
+
+      {noticeMessage ? <div className="app-notice">{noticeMessage}</div> : null}
     </main>
   );
 }

@@ -1,4 +1,4 @@
-import { useMemo, useState, type KeyboardEvent } from 'react';
+import { useMemo, useState, type KeyboardEvent, type ReactNode } from 'react';
 
 type TagInputProps = {
   tags: string[];
@@ -7,13 +7,14 @@ type TagInputProps = {
   onFocus?: () => void;
   isEditing?: boolean;
   onActivate?: () => void;
+  action?: ReactNode;
 };
 
 function normalizeTag(tag: string): string {
   return tag.trim();
 }
 
-export function TagInput({ tags, onChange, onTagClick, onFocus, isEditing = true, onActivate }: TagInputProps) {
+export function TagInput({ tags, onChange, onTagClick, onFocus, isEditing = true, onActivate, action }: TagInputProps) {
   const [draft, setDraft] = useState('');
   const normalizedTags = useMemo(() => tags.map(normalizeTag).filter(Boolean), [tags]);
 
@@ -65,58 +66,62 @@ export function TagInput({ tags, onChange, onTagClick, onFocus, isEditing = true
         onFocus?.();
       }}
     >
-      {normalizedTags.map((tag) => (
-        <button
-          key={tag}
-          type="button"
-          className="tag-pill"
-          onClick={() => {
-            if (!isEditing) {
-              onActivate?.();
-              return;
-            }
-            onTagClick(tag);
-          }}
-        >
-          <span className="tag-pill__label">{tag}</span>
-          {isEditing ? (
-            <span
-              className="tag-pill__remove"
-              role="button"
-              tabIndex={0}
-              onClick={(event) => {
-                event.stopPropagation();
-                removeTag(tag);
-              }}
-              onKeyDown={(event) => {
-                if (event.key === 'Enter' || event.key === ' ') {
-                  event.preventDefault();
+      <div className="tag-input__content">
+        {normalizedTags.map((tag) => (
+          <button
+            key={tag}
+            type="button"
+            className="tag-pill"
+            onClick={() => {
+              if (!isEditing) {
+                onActivate?.();
+                return;
+              }
+              onTagClick(tag);
+            }}
+          >
+            <span className="tag-pill__label">{tag}</span>
+            {isEditing ? (
+              <span
+                className="tag-pill__remove"
+                role="button"
+                tabIndex={0}
+                onClick={(event) => {
                   event.stopPropagation();
                   removeTag(tag);
-                }
-              }}
-            >
-              x
-            </span>
-          ) : null}
-        </button>
-      ))}
+                }}
+                onKeyDown={(event) => {
+                  if (event.key === 'Enter' || event.key === ' ') {
+                    event.preventDefault();
+                    event.stopPropagation();
+                    removeTag(tag);
+                  }
+                }}
+              >
+                x
+              </span>
+            ) : null}
+          </button>
+        ))}
 
-      {isEditing ? (
-        <input
-          className="tag-input__field"
-          value={draft}
-          onChange={(event) => setDraft(event.target.value)}
-          onKeyDown={handleKeyDown}
-          onBlur={commitDraft}
-          onFocus={onFocus}
-          placeholder={normalizedTags.length === 0 ? 'tags separated by space' : ''}
-        />
-      ) : normalizedTags.length === 0 ? (
-        <button type="button" className="tag-input__placeholder" onClick={onActivate}>
-          Add tags
-        </button>
-      ) : null}
+        {isEditing ? (
+          <input
+            className="tag-input__field"
+            value={draft}
+            onChange={(event) => setDraft(event.target.value)}
+            onKeyDown={handleKeyDown}
+            onBlur={commitDraft}
+            onFocus={onFocus}
+            placeholder={normalizedTags.length === 0 ? 'tags separated by space' : ''}
+          />
+        ) : normalizedTags.length === 0 ? (
+          <button type="button" className="tag-input__placeholder" onClick={onActivate}>
+            Add tags
+          </button>
+        ) : null}
+      </div>
+
+      {action ? <div className="tag-input__action">{action}</div> : null}
     </div>
   );
 }

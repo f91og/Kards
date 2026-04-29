@@ -110,7 +110,7 @@ export function cardRowToModel(row: CardRow | null | undefined): Card | null {
     updatedAt,
     isArchived: Boolean(row.is_hidden),
     position: row.sort_order ?? 0,
-    editorHeight: row.editor_height ?? 160,
+    editorHeight: row.editor_height ?? 48,
     isCollapsed: Boolean(row.is_collapsed),
   };
 }

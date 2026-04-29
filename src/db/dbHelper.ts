@@ -14,6 +14,7 @@ import {
 } from '../shared/models/card.js';
 
 const DB_NAME = 'memcards.db';
+const DEFAULT_EDITOR_HEIGHT = 48;
 
 let db: DatabaseInstance | null = null;
 
@@ -42,7 +43,7 @@ function initSchema(database: DatabaseInstance): void {
     updated_at TEXT,
     is_hidden INTEGER DEFAULT 0,
     sort_order INTEGER DEFAULT 0,
-    editor_height INTEGER DEFAULT 160,
+    editor_height INTEGER DEFAULT 48,
     is_collapsed INTEGER DEFAULT 0
   );`;
   const settingsStmt = `
@@ -52,7 +53,7 @@ function initSchema(database: DatabaseInstance): void {
   );`;
   database.prepare(createStmt).run();
   database.prepare(settingsStmt).run();
-  ensureColumn(database, 'cards', 'editor_height', 'INTEGER DEFAULT 160');
+  ensureColumn(database, 'cards', 'editor_height', `INTEGER DEFAULT ${DEFAULT_EDITOR_HEIGHT}`);
   ensureColumn(database, 'cards', 'is_collapsed', 'INTEGER DEFAULT 0');
 }
 
@@ -122,7 +123,7 @@ export function insertCard(card: NewCard): string {
       updatedAt,
       card.isArchived ? 1 : 0,
       card.position ?? 0,
-      card.editorHeight ?? 160,
+      card.editorHeight ?? DEFAULT_EDITOR_HEIGHT,
       card.isCollapsed ? 1 : 0,
     );
     return generatedId;

@@ -8,6 +8,7 @@ type CardItemProps = {
   card: Card;
   isSelected: boolean;
   isEditing: boolean;
+  isPoppedOut?: boolean;
   titleError?: string;
   onSelect: () => void;
   onStartEditing: () => void;
@@ -22,10 +23,19 @@ type CardItemProps = {
   onRemove: (id: string) => void;
 };
 
+const MIN_EDITOR_HEIGHT_PX = 48;
+const LEGACY_DEFAULT_EDITOR_HEIGHT_PX = 160;
+
+function normalizeEditorHeight(editorHeight: number): number {
+  if (editorHeight === LEGACY_DEFAULT_EDITOR_HEIGHT_PX) return MIN_EDITOR_HEIGHT_PX;
+  return Math.max(MIN_EDITOR_HEIGHT_PX, editorHeight);
+}
+
 export function CardItem({
   card,
   isSelected,
   isEditing,
+  isPoppedOut = false,
   titleError,
   onSelect,
   onStartEditing,
@@ -42,7 +52,7 @@ export function CardItem({
   const menuRef = useRef<HTMLDetailsElement | null>(null);
   const cardBodyRef = useRef<HTMLDivElement | null>(null);
   const titleInputRef = useRef<HTMLInputElement | null>(null);
-  const [editorHeight, setEditorHeight] = useState(card.editorHeight);
+  const [editorHeight, setEditorHeight] = useState(() => normalizeEditorHeight(card.editorHeight));
   const [isCollapsed, setIsCollapsed] = useState(card.isCollapsed);
   const resizeStateRef = useRef<{ startY: number; startHeight: number } | null>(null);
   const editorHeightRef = useRef(card.editorHeight);
@@ -66,7 +76,7 @@ export function CardItem({
     if (!resizeState) return;
 
     const nextHeight = resizeState.startHeight + (event.clientY - resizeState.startY);
-    const normalizedHeight = Math.max(160, nextHeight);
+    const normalizedHeight = Math.max(MIN_EDITOR_HEIGHT_PX, nextHeight);
     editorHeightRef.current = normalizedHeight;
     setEditorHeight(normalizedHeight);
   };
@@ -154,7 +164,7 @@ export function CardItem({
     editable: isEditing,
     editorProps: {
       attributes: {
-        class: `editor-content${isEditing ? '' : ' editor-content--readonly'}`,
+        class: `editor-content${isEditing ? ' editor-content--editing' : ' editor-content--readonly'}`,
       },
       handleDOMEvents: {
         mousedown: () => {
@@ -182,8 +192,9 @@ export function CardItem({
   });
 
   useEffect(() => {
-    editorHeightRef.current = card.editorHeight;
-    setEditorHeight(card.editorHeight);
+    const normalizedEditorHeight = normalizeEditorHeight(card.editorHeight);
+    editorHeightRef.current = normalizedEditorHeight;
+    setEditorHeight(normalizedEditorHeight);
   }, [card.editorHeight]);
 
   useEffect(() => {
@@ -202,7 +213,7 @@ export function CardItem({
 
   return (
     <article
-      className={`card-item${titleError ? ' card-item--error' : ''}${isSelected ? ' card-item--selected' : ''}${isEditing ? ' card-item--editing' : ''}`}
+      className={`card-item${titleError ? ' card-item--error' : ''}${isSelected ? ' card-item--selected' : ''}${isEditing ? ' card-item--editing' : ''}${isPoppedOut ? ' card-item--popped' : ''}`}
       onMouseDown={() => onSelect()}
     >
       <div className="card-item__menu">
@@ -285,40 +296,44 @@ export function CardItem({
       {titleError ? <div className="card-error">{titleError}</div> : null}
 
       <div ref={cardBodyRef} className={`card-item__body${isCollapsed ? ' card-item__body--collapsed' : ''}`}>
-        <TagInput
-          tags={card.tags}
-          onChange={(tags) => onTagsChange(card.id, tags)}
-          onTagClick={(tag) => {
-            closeMenu();
-            onTagClick(tag);
-          }}
-          onFocus={() => {
-            onSelect();
-            closeMenu();
-          }}
-          isEditing={isEditing}
-          onActivate={activateTagEditing}
-        />
-
         {isCollapsed ? (
           <div className="card-collapsed-preview">
             <span className="card-collapsed-preview__text">......</span>
           </div>
         ) : (
-          <div className="single-pane-editor" style={{ height: `${editorHeight}px` }}>
+          <div className="single-pane-editor" style={isPoppedOut ? undefined : { minHeight: `${editorHeight}px` }}>
             <EditorContent editor={editor} />
-            {isEditing ? (
-              <button
-                type="button"
-                className="card-resize-handle"
-                aria-label="Resize card"
-                onMouseDown={startResize}
-              >
-                <span className="card-resize-handle__grip" aria-hidden="true" />
-              </button>
-            ) : null}
           </div>
         )}
+
+        {!isCollapsed ? (
+          <TagInput
+            tags={card.tags}
+            onChange={(tags) => onTagsChange(card.id, tags)}
+            onTagClick={(tag) => {
+              closeMenu();
+              onTagClick(tag);
+            }}
+            onFocus={() => {
+              onSelect();
+              closeMenu();
+            }}
+            isEditing={isEditing}
+            onActivate={activateTagEditing}
+            action={
+              isEditing ? (
+                <button
+                  type="button"
+                  className="card-resize-handle"
+                  aria-label="Resize card"
+                  onMouseDown={startResize}
+                >
+                  <span className="card-resize-handle__grip" aria-hidden="true" />
+                </button>
+              ) : null
+            }
+          />
+        ) : null}
       </div>
     </article>
   );
