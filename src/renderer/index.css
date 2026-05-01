@@ -79,6 +79,7 @@ body[data-theme='dark'] {
 }
 
 .window-titlebar__add,
+.window-titlebar__collapse,
 .window-titlebar__theme,
 .window-titlebar__pin,
 .window-titlebar__settings {
@@ -96,6 +97,8 @@ body[data-theme='dark'] {
 }
 
 .window-titlebar__add:hover,
+.window-titlebar__collapse:hover,
+.window-titlebar__collapse--active,
 .window-titlebar__theme--active,
 .window-titlebar__pin--active,
 .window-titlebar__settings--active {
@@ -105,6 +108,7 @@ body[data-theme='dark'] {
 }
 
 .window-titlebar__add-icon,
+.window-titlebar__collapse-icon,
 .window-titlebar__theme-icon,
 .window-titlebar__pin-icon,
 .window-titlebar__settings-icon {

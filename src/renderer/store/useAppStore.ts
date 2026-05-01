@@ -13,6 +13,7 @@ type AppState = {
   hydrateCards: () => Promise<void>;
   loadMoreCards: () => Promise<void>;
   addCard: () => Promise<void>;
+  toggleCollapseAllCards: () => Promise<void>;
   updateCardTitle: (id: string, title: string) => Promise<void>;
   validateCardTitle: (id: string) => Promise<boolean>;
   updateCardTags: (id: string, tags: string[]) => Promise<void>;
@@ -211,6 +212,30 @@ export const useAppStore = create<AppState>((set, get) => ({
         },
       };
     });
+  },
+  toggleCollapseAllCards: async () => {
+    const cards = get().cards;
+    if (cards.length === 0) return;
+
+    const shouldCollapse = cards.some((card) => !card.isCollapsed);
+
+    set((state) => ({
+      cards: state.cards.map((card) => (card.isCollapsed === shouldCollapse ? card : { ...card, isCollapsed: shouldCollapse })),
+    }));
+
+    await Promise.all(
+      cards
+        .filter((card) => card.isCollapsed !== shouldCollapse)
+        .map((card) =>
+          persistCard({
+            ...card,
+            isCollapsed: shouldCollapse,
+            updatedAt: new Date().toISOString(),
+          }),
+        ),
+    );
+
+    await refreshCards(set, get, 'reset');
   },
   updateCardTitle: async (id, title) => {
     set((state) => ({

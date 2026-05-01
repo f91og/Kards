@@ -59,6 +59,7 @@ export default function App() {
     hydrateCards,
     loadMoreCards,
     addCard,
+    toggleCollapseAllCards,
     updateCardTitle,
     validateCardTitle,
     updateCardTags,
@@ -85,6 +86,7 @@ export default function App() {
   const visibleCards = cards;
   const poppedCard = poppedCardId ? cards.find((card) => card.id === poppedCardId) ?? null : null;
   const listCards = poppedCardId ? visibleCards.filter((card) => card.id !== poppedCardId) : visibleCards;
+  const areAllLoadedCardsCollapsed = listCards.length > 0 && listCards.every((card) => card.isCollapsed);
   const showTagDropdown = isSearchFocused && normalizedQuery === '' && allTags.length > 0;
   const selectedCard = selectedCardId ? visibleCards.find((card) => card.id === selectedCardId) ?? null : null;
 
@@ -364,6 +366,26 @@ export default function App() {
           <svg viewBox="0 0 16 16" aria-hidden="true" className="window-titlebar__add-icon">
             <path
               d="M8 3.1a.75.75 0 0 1 .75.75v3.4h3.4a.75.75 0 0 1 0 1.5h-3.4v3.4a.75.75 0 0 1-1.5 0v-3.4h-3.4a.75.75 0 0 1 0-1.5h3.4v-3.4A.75.75 0 0 1 8 3.1Z"
+              fill="currentColor"
+            />
+          </svg>
+        </button>
+
+        <button
+          type="button"
+          className={`window-titlebar__collapse${areAllLoadedCardsCollapsed ? ' window-titlebar__collapse--active' : ''}`}
+          onClick={() => {
+            void toggleCollapseAllCards();
+          }}
+          aria-label={areAllLoadedCardsCollapsed ? 'Expand all cards' : 'Collapse all cards'}
+        >
+          <svg viewBox="0 0 16 16" aria-hidden="true" className="window-titlebar__collapse-icon">
+            <path
+              d="M4.22 5.22a.75.75 0 0 1 1.06 0L8 7.94l2.72-2.72a.75.75 0 1 1 1.06 1.06l-3.25 3.25a.75.75 0 0 1-1.06 0L4.22 6.28a.75.75 0 0 1 0-1.06Z"
+              fill="currentColor"
+            />
+            <path
+              d="M4 11.25a.75.75 0 0 1 .75-.75h6.5a.75.75 0 0 1 0 1.5h-6.5A.75.75 0 0 1 4 11.25Z"
               fill="currentColor"
             />
           </svg>

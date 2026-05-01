@@ -1,4 +1,4 @@
-import { useMemo, useState, type KeyboardEvent, type ReactNode } from 'react';
+import { useMemo, useRef, useState, type CompositionEvent, type KeyboardEvent, type ReactNode } from 'react';
 
 type TagInputProps = {
   tags: string[];
@@ -16,6 +16,7 @@ function normalizeTag(tag: string): string {
 
 export function TagInput({ tags, onChange, onTagClick, onFocus, isEditing = true, onActivate, action }: TagInputProps) {
   const [draft, setDraft] = useState('');
+  const isComposingRef = useRef(false);
   const normalizedTags = useMemo(() => tags.map(normalizeTag).filter(Boolean), [tags]);
 
   const commitDraft = () => {
@@ -42,6 +43,10 @@ export function TagInput({ tags, onChange, onTagClick, onFocus, isEditing = true
   };
 
   const handleKeyDown = (event: KeyboardEvent<HTMLInputElement>) => {
+    if (isComposingRef.current || event.nativeEvent.isComposing) {
+      return;
+    }
+
     if (event.key === ' ' || event.key === 'Enter' || event.key === 'Tab') {
       if (draft.trim() !== '') {
         event.preventDefault();
@@ -53,6 +58,14 @@ export function TagInput({ tags, onChange, onTagClick, onFocus, isEditing = true
     if (event.key === 'Backspace' && draft === '' && normalizedTags.length > 0) {
       onChange(normalizedTags.slice(0, -1));
     }
+  };
+
+  const handleCompositionStart = () => {
+    isComposingRef.current = true;
+  };
+
+  const handleCompositionEnd = (_event: CompositionEvent<HTMLInputElement>) => {
+    isComposingRef.current = false;
   };
 
   return (
@@ -109,8 +122,13 @@ export function TagInput({ tags, onChange, onTagClick, onFocus, isEditing = true
             className="tag-input__field"
             value={draft}
             onChange={(event) => setDraft(event.target.value)}
+            onCompositionStart={handleCompositionStart}
+            onCompositionEnd={handleCompositionEnd}
             onKeyDown={handleKeyDown}
-            onBlur={commitDraft}
+            onBlur={() => {
+              if (isComposingRef.current) return;
+              commitDraft();
+            }}
             onFocus={onFocus}
             placeholder={normalizedTags.length === 0 ? 'tags separated by space' : ''}
           />
