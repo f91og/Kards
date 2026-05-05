@@ -24,6 +24,10 @@ yarn-error.log*
 
 # Build files
 build/
+!build/
+build/*
+!build/afterPack.cjs
+!build/icon.icns
 *.egg-info/
 .cache/
 .env
