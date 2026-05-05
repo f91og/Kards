@@ -198,14 +198,14 @@ export const useAppStore = create<AppState>((set, get) => ({
     const card = await window.kardsCards.create();
     if (!card) return;
 
-    if (!matchesSearch(card, get().searchQuery)) return;
-
     set((state) => {
+      const shouldClearSearch = !matchesSearch(card, state.searchQuery);
       const nextCards = sortCards([card, ...state.cards]);
       syncLoadedCount(nextCards);
 
       return {
         cards: nextCards,
+        searchQuery: shouldClearSearch ? '' : state.searchQuery,
         titleErrors: {
           ...state.titleErrors,
           [card.id]: undefined,

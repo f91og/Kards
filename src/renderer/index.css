@@ -659,6 +659,18 @@ body[data-theme='dark'] {
   padding-left: 1.5rem;
 }
 
+.editor-content ul {
+  list-style: disc;
+}
+
+.editor-content ol {
+  list-style: decimal;
+}
+
+.editor-content li {
+  display: list-item;
+}
+
 .editor-content a {
   color: var(--link);
 }
