@@ -27,7 +27,9 @@ build/
 !build/
 build/*
 !build/afterPack.cjs
+!build/entitlements.mac.plist
 !build/icon.icns
+!build/notarize.cjs
 *.egg-info/
 .cache/
 .env
