@@ -10,7 +10,7 @@
     "dev:renderer": "vite",
     "build": "npm run typecheck && npm run build:main && vite build",
     "build:main": "tsc src/main.ts src/preload.cts --outDir dist --module nodenext",
-    "dist:mac": "npm run build && CSC_IDENTITY_AUTO_DISCOVERY=false ELECTRON_BUILDER_CACHE=/tmp/electron-builder-cache npm_config_devdir=/tmp/.electron-gyp electron-builder --mac dmg zip --publish never",
+    "dist:mac": "npm run build && ELECTRON_BUILDER_CACHE=/tmp/electron-builder-cache npm_config_devdir=/tmp/.electron-gyp electron-builder --mac dmg --publish never && rm -f release/*.blockmap release/latest-mac.yml release/*.zip",
     "typecheck": "tsc --noEmit",
     "start": "npm run build && electron .",
     "test": "echo \"Error: no test specified\" && exit 1"
@@ -34,6 +34,7 @@
     "zustand": "^5.0.12"
   },
   "devDependencies": {
+    "@electron/notarize": "^2.5.0",
     "@types/better-sqlite3": "^7.6.13",
     "@types/node": "^20.0.0",
     "@types/react": "^18.2.0",
@@ -52,6 +53,7 @@
   "build": {
     "appId": "com.xueyu.kards",
     "afterPack": "build/afterPack.cjs",
+    "afterSign": "build/notarize.cjs",
     "directories": {
       "output": "release"
     },
@@ -67,11 +69,13 @@
     "mac": {
       "artifactName": "${productName}-${version}-${arch}.${ext}",
       "category": "public.app-category.productivity",
+      "hardenedRuntime": true,
+      "gatekeeperAssess": false,
       "icon": "build/icon.icns",
-      "identity": null,
+      "entitlements": "build/entitlements.mac.plist",
+      "entitlementsInherit": "build/entitlements.mac.plist",
       "target": [
-        "dmg",
-        "zip"
+        "dmg"
       ]
     }
   }
