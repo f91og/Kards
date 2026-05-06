@@ -78,6 +78,11 @@ jobs:
           APPLE_API_ISSUER: ${{ secrets.APPLE_API_ISSUER }}
         run: npm run dist:mac
 
+      - name: Verify app signature
+        run: |
+          codesign --verify --deep --strict --verbose=2 "release/mac-arm64/Kards.app"
+          codesign -dv --verbose=4 "release/mac-arm64/Kards.app/Contents/Frameworks/Kards Helper (GPU).app"
+
       - name: Publish GitHub release
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
