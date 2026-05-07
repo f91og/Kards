@@ -1,4 +1,5 @@
 import { useMemo, useRef, useState, type CompositionEvent, type KeyboardEvent, type ReactNode } from 'react';
+import { mergeUniqueTags, normalizeTags } from '../../shared/models/card';
 
 type TagInputProps = {
   tags: string[];
@@ -10,36 +11,18 @@ type TagInputProps = {
   action?: ReactNode;
 };
 
-function normalizeTag(tag: string): string {
-  return tag.trim();
-}
-
 export function TagInput({ tags, onChange, onTagClick, onFocus, isEditing = true, onActivate, action }: TagInputProps) {
   const [draft, setDraft] = useState('');
   const isComposingRef = useRef(false);
-  const normalizedTags = useMemo(() => tags.map(normalizeTag).filter(Boolean), [tags]);
+  const normalizedTags = useMemo(() => normalizeTags(tags), [tags]);
 
   const commitDraft = () => {
-    const nextTags = draft
-      .split(/\s+/)
-      .map(normalizeTag)
-      .filter(Boolean);
+    const nextTags = normalizeTags(draft.split(/\s+/));
 
     if (nextTags.length === 0) return;
 
-    const mergedTags = [...normalizedTags];
-    nextTags.forEach((tag) => {
-      if (!mergedTags.some((existingTag) => existingTag.toLocaleLowerCase() === tag.toLocaleLowerCase())) {
-        mergedTags.push(tag);
-      }
-    });
-
-    onChange(mergedTags);
+    onChange(mergeUniqueTags(normalizedTags, nextTags));
     setDraft('');
-  };
-
-  const removeTag = (tagToRemove: string) => {
-    onChange(normalizedTags.filter((tag) => tag !== tagToRemove));
   };
 
   const handleKeyDown = (event: KeyboardEvent<HTMLInputElement>) => {
@@ -94,26 +77,6 @@ export function TagInput({ tags, onChange, onTagClick, onFocus, isEditing = true
             }}
           >
             <span className="tag-pill__label">{tag}</span>
-            {isEditing ? (
-              <span
-                className="tag-pill__remove"
-                role="button"
-                tabIndex={0}
-                onClick={(event) => {
-                  event.stopPropagation();
-                  removeTag(tag);
-                }}
-                onKeyDown={(event) => {
-                  if (event.key === 'Enter' || event.key === ' ') {
-                    event.preventDefault();
-                    event.stopPropagation();
-                    removeTag(tag);
-                  }
-                }}
-              >
-                x
-              </span>
-            ) : null}
           </button>
         ))}
 

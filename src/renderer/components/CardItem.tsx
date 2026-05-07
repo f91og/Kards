@@ -2,9 +2,9 @@ import StarterKit from '@tiptap/starter-kit';
 import { EditorContent, useEditor } from '@tiptap/react';
 import { useEffect, useRef, useState, type MouseEvent as ReactMouseEvent } from 'react';
 import { TagInput } from '@/components/TagInput';
-import type { Card } from '../../shared/models/card';
+import { copyCardContentToClipboard, type Card } from '../../shared/models/card';
 
-type CardItemProps = {
+export type CardItemProps = {
   card: Card;
   isSelected: boolean;
   isEditing: boolean;
@@ -107,53 +107,42 @@ export function CardItem({
 
   const copyCardContent = async () => {
     closeMenu();
+    await copyCardContentToClipboard(card.content);
+  };
 
-    const plainText = card.content
-      .replace(/<[^>]+>/g, ' ')
-      .replace(/&nbsp;/g, ' ')
-      .replace(/\s+/g, ' ')
-      .trim();
+  const ensureSelected = (): boolean => {
+    if (isSelected) return true;
+    onSelect();
+    return false;
+  };
 
-    if (plainText === '') return;
+  const startEditing = (focusTarget: () => void) => {
+    if (!ensureSelected() || isEditing) return;
 
-    try {
-      await navigator.clipboard.writeText(plainText);
-    } catch {
-      // Ignore clipboard failures for now.
-    }
+    onStartEditing();
+    requestAnimationFrame(focusTarget);
   };
 
   const activateTitleEditing = (event: ReactMouseEvent<HTMLInputElement>) => {
-    if (!isSelected) {
+    if (!ensureSelected()) {
       event.preventDefault();
-      onSelect();
       return;
     }
-    if (isEditing) return;
-    onStartEditing();
-    requestAnimationFrame(() => {
+    startEditing(() => {
       titleInputRef.current?.focus();
       titleInputRef.current?.setSelectionRange(titleInputRef.current.value.length, titleInputRef.current.value.length);
     });
   };
 
   const activateTagEditing = () => {
-    if (!isSelected) {
-      onSelect();
-      return;
-    }
-    if (isEditing) return;
-    onStartEditing();
-    requestAnimationFrame(() => {
+    startEditing(() => {
       const tagInput = cardBodyRef.current?.querySelector<HTMLInputElement>('.tag-input__field');
       tagInput?.focus();
     });
   };
 
   const activateContentEditing = () => {
-    if (isEditing) return;
-    onStartEditing();
-    requestAnimationFrame(() => {
+    startEditing(() => {
       editor?.commands.focus('end');
     });
   };

@@ -60,34 +60,86 @@ export interface WindowBoundsState {
 
 const DEFAULT_EXCERPT_LENGTH = 180;
 
+export function normalizeTag(tag: string): string {
+  return tag.trim();
+}
+
+export function normalizeTagKey(tag: string): string {
+  return normalizeTag(tag).toLocaleLowerCase();
+}
+
+export function normalizeTags(tags: string[]): string[] {
+  return tags.map(normalizeTag).filter(Boolean);
+}
+
+export function mergeUniqueTags(existingTags: string[], nextTags: string[]): string[] {
+  const mergedTags = [...normalizeTags(existingTags)];
+
+  normalizeTags(nextTags).forEach((tag) => {
+    const normalizedTagKey = normalizeTagKey(tag);
+    if (!mergedTags.some((existingTag) => normalizeTagKey(existingTag) === normalizedTagKey)) {
+      mergedTags.push(tag);
+    }
+  });
+
+  return mergedTags;
+}
+
+export function collectUniqueTags(tagsByCard: string[][]): string[] {
+  const dedupedTags = new Map<string, string>();
+
+  tagsByCard.forEach((tags) => {
+    normalizeTags(tags).forEach((tag) => {
+      const normalizedTagKey = normalizeTagKey(tag);
+      if (!dedupedTags.has(normalizedTagKey)) {
+        dedupedTags.set(normalizedTagKey, tag);
+      }
+    });
+  });
+
+  return Array.from(dedupedTags.values()).sort((left, right) => left.localeCompare(right));
+}
+
+export function htmlToPlainText(content: string): string {
+  return content
+    .replace(/<[^>]+>/g, ' ')
+    .replace(/&nbsp;/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
+export async function copyCardContentToClipboard(content: string): Promise<void> {
+  const plainText = htmlToPlainText(content);
+  if (plainText === '') return;
+
+  try {
+    await navigator.clipboard.writeText(plainText);
+  } catch {
+    // Ignore clipboard failures for now.
+  }
+}
+
 export function parseStoredTags(tags: string | null | undefined): string[] {
   if (!tags) return [];
 
   try {
     const parsed = JSON.parse(tags) as unknown;
     if (Array.isArray(parsed)) {
-      return parsed.map((tag) => String(tag).trim()).filter(Boolean);
+      return normalizeTags(parsed.map((tag) => String(tag)));
     }
   } catch {
     // Fall back to legacy comma-separated tags.
   }
 
-  return tags
-    .split(',')
-    .map((tag) => tag.trim())
-    .filter(Boolean);
+  return normalizeTags(tags.split(','));
 }
 
 export function serializeTags(tags: string[]): string {
-  return JSON.stringify(tags.map((tag) => tag.trim()).filter(Boolean));
+  return JSON.stringify(normalizeTags(tags));
 }
 
 export function buildCardExcerpt(content: string, maxLength: number = DEFAULT_EXCERPT_LENGTH): string {
-  const plainText = content
-    .replace(/<[^>]+>/g, ' ')
-    .replace(/&nbsp;/g, ' ')
-    .replace(/\s+/g, ' ')
-    .trim();
+  const plainText = htmlToPlainText(content);
 
   if (plainText.length <= maxLength) return plainText;
   return `${plainText.slice(0, maxLength).trimEnd()}...`;
