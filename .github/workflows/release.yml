@@ -4,33 +4,20 @@ on:
   push:
     tags:
       - '*.*.*'
+  workflow_dispatch:
 
 permissions:
   contents: write
 
 jobs:
-  release:
-    runs-on: macos-latest
-    environment: release
-    concurrency:
-      group: release-${{ github.ref }}
-      cancel-in-progress: false
+  validate:
+    runs-on: ubuntu-latest
 
     steps:
       - name: Checkout
         uses: actions/checkout@v4
-
-      - name: Setup Node
-        uses: actions/setup-node@v4
         with:
-          node-version: 20
-          cache: npm
-
-      - name: Install dependencies
-        run: npm ci
-
-      - name: Audit production dependencies
-        run: npm audit --omit=dev --audit-level=high
+          fetch-depth: 0
 
       - name: Validate tag matches package version
         env:
@@ -42,16 +29,96 @@ jobs:
             exit 1
           fi
 
+      - name: Validate tagged commit is on master
+        run: |
+          git fetch origin master --depth=1
+          if ! git merge-base --is-ancestor "$GITHUB_SHA" origin/master; then
+            echo "Tagged commit $GITHUB_SHA is not on origin/master"
+            exit 1
+          fi
+
+  build:
+    runs-on: macos-latest
+    needs: validate
+    environment: release
+    concurrency:
+      group: release-build-${{ github.ref }}
+      cancel-in-progress: false
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Audit production dependencies
+        run: npm audit --omit=dev --audit-level=high
+
       - name: Validate macOS signing secrets
         env:
           CSC_LINK: ${{ secrets.CSC_LINK }}
           CSC_KEY_PASSWORD: ${{ secrets.CSC_KEY_PASSWORD }}
+        run: |
+          missing=0
+          for var in CSC_LINK CSC_KEY_PASSWORD; do
+            if [ -z "${!var}" ]; then
+              echo "Missing required secret: $var"
+              missing=1
+            fi
+          done
+          if [ "$missing" -ne 0 ]; then
+            exit 1
+          fi
+
+      - name: Build signed release artifacts
+        env:
+          CSC_LINK: ${{ secrets.CSC_LINK }}
+          CSC_KEY_PASSWORD: ${{ secrets.CSC_KEY_PASSWORD }}
+          SKIP_NOTARIZATION: '1'
+        run: npm run dist:mac
+
+      - name: Verify app signature
+        run: |
+          codesign --verify --deep --strict --verbose=2 "release/mac-arm64/Kards.app"
+          codesign -dv --verbose=4 "release/mac-arm64/Kards.app/Contents/Frameworks/Kards Helper (GPU).app"
+
+      - name: Upload signed DMG
+        uses: actions/upload-artifact@v4
+        with:
+          name: macos-dmg-signed
+          path: release/*.dmg
+          if-no-files-found: error
+
+  notarize:
+    runs-on: macos-latest
+    needs: build
+    environment: release
+    concurrency:
+      group: release-notarize-${{ github.ref }}
+      cancel-in-progress: false
+
+    steps:
+      - name: Download signed DMG
+        uses: actions/download-artifact@v4
+        with:
+          name: macos-dmg-signed
+          path: release
+
+      - name: Validate notarization secrets
+        env:
           APPLE_API_KEY: ${{ secrets.APPLE_API_KEY }}
           APPLE_API_KEY_ID: ${{ secrets.APPLE_API_KEY_ID }}
           APPLE_API_ISSUER: ${{ secrets.APPLE_API_ISSUER }}
         run: |
           missing=0
-          for var in CSC_LINK CSC_KEY_PASSWORD APPLE_API_KEY APPLE_API_KEY_ID APPLE_API_ISSUER; do
+          for var in APPLE_API_KEY APPLE_API_KEY_ID APPLE_API_ISSUER; do
             if [ -z "${!var}" ]; then
               echo "Missing required secret: $var"
               missing=1
@@ -69,23 +136,55 @@ jobs:
           mkdir -p "$RUNNER_TEMP/private_keys"
           printf '%s' "$APPLE_API_KEY" > "$RUNNER_TEMP/private_keys/AuthKey.p8"
 
-      - name: Build release artifacts
+      - name: Notarize DMG
         env:
-          CSC_LINK: ${{ secrets.CSC_LINK }}
-          CSC_KEY_PASSWORD: ${{ secrets.CSC_KEY_PASSWORD }}
-          APPLE_API_KEY: ${{ runner.temp }}/private_keys/AuthKey.p8
           APPLE_API_KEY_ID: ${{ secrets.APPLE_API_KEY_ID }}
           APPLE_API_ISSUER: ${{ secrets.APPLE_API_ISSUER }}
-        run: npm run dist:mac
-
-      - name: Verify app signature
         run: |
-          codesign --verify --deep --strict --verbose=2 "release/mac-arm64/Kards.app"
-          codesign -dv --verbose=4 "release/mac-arm64/Kards.app/Contents/Frameworks/Kards Helper (GPU).app"
+          shopt -s nullglob
+          dmgs=(release/*.dmg)
+          if [ "${#dmgs[@]}" -ne 1 ]; then
+            echo "Expected exactly one DMG in release/, found ${#dmgs[@]}"
+            exit 1
+          fi
+
+          xcrun notarytool submit "${dmgs[0]}" \
+            --key "$RUNNER_TEMP/private_keys/AuthKey.p8" \
+            --key-id "$APPLE_API_KEY_ID" \
+            --issuer "$APPLE_API_ISSUER" \
+            --wait
+
+      - name: Staple DMG
+        run: |
+          shopt -s nullglob
+          dmgs=(release/*.dmg)
+          xcrun stapler staple "${dmgs[0]}"
+
+      - name: Upload notarized DMG
+        uses: actions/upload-artifact@v4
+        with:
+          name: macos-dmg-notarized
+          path: release/*.dmg
+          if-no-files-found: error
+
+      - name: Cleanup signing files
+        if: always()
+        run: rm -rf "$RUNNER_TEMP/private_keys"
+
+  publish:
+    runs-on: ubuntu-latest
+    needs: notarize
+    steps:
+      - name: Download notarized DMG
+        uses: actions/download-artifact@v4
+        with:
+          name: macos-dmg-notarized
+          path: release
 
       - name: Publish GitHub release
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITHUB_REF_NAME: ${{ github.ref_name }}
         run: |
           shopt -s nullglob
           dmgs=(release/*.dmg)
@@ -99,7 +198,3 @@ jobs:
           else
             gh release create "$GITHUB_REF_NAME" "${dmgs[@]}" --generate-notes
           fi
-
-      - name: Cleanup signing files
-        if: always()
-        run: rm -rf "$RUNNER_TEMP/private_keys"

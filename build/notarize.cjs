@@ -6,6 +6,11 @@ module.exports = async function notarizing(context) {
     return;
   }
 
+  if (process.env.SKIP_NOTARIZATION === '1') {
+    console.warn('Skipping notarization because SKIP_NOTARIZATION=1.');
+    return;
+  }
+
   const appName = context.packager.appInfo.productFilename;
   const appPath = path.join(context.appOutDir, `${appName}.app`);
   const profile = process.env.NOTARYTOOL_PROFILE;
