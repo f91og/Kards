@@ -3,8 +3,6 @@ import { buildCardExcerpt, type Card } from '../../shared/models/card';
 
 const CARDS_PAGE_SIZE = 20;
 
-export type PoppedCardMode = 'medium' | 'large';
-
 type AppState = {
   cards: Card[];
   titleErrors: Record<string, string | undefined>;
@@ -14,8 +12,7 @@ type AppState = {
   isLoadingMoreCards: boolean;
   selectedCardId: string | null;
   editingCardId: string | null;
-  poppedCardId: string | null;
-  poppedCardMode: PoppedCardMode | null;
+  isLargeMode: boolean;
   hydrateCards: () => Promise<void>;
   loadMoreCards: () => Promise<void>;
   addCard: () => Promise<void>;
@@ -29,14 +26,12 @@ type AppState = {
   toggleCardContentMasked: (id: string) => Promise<void>;
   removeCard: (id: string) => Promise<void>;
   setSearchQuery: (searchQuery: string) => void;
-  setSelectedCardId: (selectedCardId: string | null) => void;
-  setEditingCardId: (editingCardId: string | null) => void;
-  setPoppedCardId: (poppedCardId: string | null) => void;
-  setPoppedCardMode: (poppedCardMode: PoppedCardMode | null) => void;
+  clearCardFocus: () => void;
   selectCard: (cardId: string) => void;
   startEditingCard: (cardId: string) => void;
   stopEditingCard: (cardId: string) => void;
-  closePoppedCard: () => void;
+  openLargeMode: (cardId: string) => void;
+  closeLargeMode: () => void;
   resetCardInteractionState: () => void;
 };
 
@@ -206,8 +201,7 @@ export const useAppStore = create<AppState>((set, get) => ({
   isLoadingMoreCards: false,
   selectedCardId: null,
   editingCardId: null,
-  poppedCardId: null,
-  poppedCardMode: null,
+  isLargeMode: false,
   hydrateCards: async () => {
     await refreshCards(set, get, 'reset');
   },
@@ -365,10 +359,11 @@ export const useAppStore = create<AppState>((set, get) => ({
     await refreshCards(set, get, 'append');
   },
   setSearchQuery: (searchQuery) => set({ searchQuery }),
-  setSelectedCardId: (selectedCardId) => set({ selectedCardId }),
-  setEditingCardId: (editingCardId) => set({ editingCardId }),
-  setPoppedCardId: (poppedCardId) => set({ poppedCardId }),
-  setPoppedCardMode: (poppedCardMode) => set({ poppedCardMode }),
+  clearCardFocus: () =>
+    set({
+      selectedCardId: null,
+      editingCardId: null,
+    }),
   selectCard: (cardId) =>
     set((state) => ({
       selectedCardId: cardId,
@@ -383,17 +378,21 @@ export const useAppStore = create<AppState>((set, get) => ({
     set((state) => ({
       editingCardId: state.editingCardId === cardId ? null : state.editingCardId,
     })),
-  closePoppedCard: () =>
+  openLargeMode: (cardId) =>
     set({
-      poppedCardId: null,
-      poppedCardMode: null,
+      selectedCardId: cardId,
+      editingCardId: cardId,
+      isLargeMode: true,
+    }),
+  closeLargeMode: () =>
+    set({
+      isLargeMode: false,
       editingCardId: null,
     }),
   resetCardInteractionState: () =>
     set({
       selectedCardId: null,
       editingCardId: null,
-      poppedCardId: null,
-      poppedCardMode: null,
+      isLargeMode: false,
     }),
 }));

@@ -1,10 +1,11 @@
 import { AppTitleBar } from '@/components/AppTitleBar';
 import { CardList } from '@/components/CardList';
+import { LargeCardPane } from '@/components/LargeCardPane';
 import { SearchBox } from '@/components/SearchBox';
 import { useStoredState } from '@/hooks/useStoredState';
 import { useAppStore } from '@/store/useAppStore';
 import { collectUniqueTags, copyCardContentToClipboard, type Card } from '../shared/models/card';
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState, type CSSProperties } from 'react';
 import type { CardItemProps } from '@/components/CardItem';
 
 type ThemeMode = 'light' | 'dark';
@@ -19,7 +20,8 @@ const WINDOW_OPACITY_STORAGE_KEY = 'kards-window-opacity-v2';
 
 export default function App() {
   const previousWindowBoundsRef = useRef<KardsWindowBounds | null>(null);
-  const noticeTimeoutRef = useRef<number | null>(null);
+  const appShellRef = useRef<HTMLElement | null>(null);
+  const leftRailRef = useRef<HTMLDivElement | null>(null);
   const loadMoreRef = useRef<HTMLDivElement | null>(null);
   const searchRef = useRef<HTMLDivElement | null>(null);
   const searchInputRef = useRef<HTMLInputElement | null>(null);
@@ -27,6 +29,8 @@ export default function App() {
   const [isSearchFocused, setIsSearchFocused] = useState(false);
   const [isPinned, setIsPinned] = useState(false);
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
+  const [largeModeRailWidth, setLargeModeRailWidth] = useState<number | null>(null);
+  const [workspaceEditorStyle, setWorkspaceEditorStyle] = useState<CSSProperties | undefined>(undefined);
   const [themeMode, setThemeMode] = useStoredState<ThemeMode>(THEME_STORAGE_KEY, 'light', {
     deserialize: (rawValue) => (rawValue === 'dark' ? 'dark' : 'light'),
     serialize: (value) => value,
@@ -73,17 +77,14 @@ export default function App() {
     isLoadingMoreCards,
     selectedCardId,
     editingCardId,
-    poppedCardId,
-    poppedCardMode,
+    isLargeMode,
     setSearchQuery,
-    setSelectedCardId,
-    setEditingCardId,
-    setPoppedCardId,
-    setPoppedCardMode,
+    clearCardFocus,
     selectCard,
     startEditingCard,
     stopEditingCard,
-    closePoppedCard,
+    openLargeMode,
+    closeLargeMode,
     resetCardInteractionState,
     hydrateCards,
     loadMoreCards,
@@ -100,57 +101,39 @@ export default function App() {
   } = useAppStore();
   const normalizedQuery = searchQuery.trim().toLocaleLowerCase();
   const allTags = useMemo(() => collectUniqueTags(cards.map((card) => card.tags)), [cards]);
-  const visibleCards = cards;
-  const poppedCard = poppedCardId ? cards.find((card) => card.id === poppedCardId) ?? null : null;
-  const listCards = poppedCardId ? visibleCards.filter((card) => card.id !== poppedCardId) : visibleCards;
-  const areAllLoadedCardsCollapsed = listCards.length > 0 && listCards.every((card) => card.isCollapsed);
+  const areAllLoadedCardsCollapsed = cards.length > 0 && cards.every((card) => card.isCollapsed);
   const showTagDropdown = isSearchFocused && normalizedQuery === '' && allTags.length > 0;
-  const selectedCard = selectedCardId ? visibleCards.find((card) => card.id === selectedCardId) ?? null : null;
+  const selectedCard = selectedCardId ? cards.find((card) => card.id === selectedCardId) ?? null : null;
 
   const copySelectedCardContent = async () => {
-    if (!selectedCardId) return;
-
-    const selectedCard = visibleCards.find((card) => card.id === selectedCardId);
     if (!selectedCard) return;
 
     await copyCardContentToClipboard(selectedCard.content);
   };
 
-  const cyclePoppedCard = () => {
+  const toggleLargeMode = () => {
     if (!selectedCardId) return;
 
-    if (poppedCardId !== selectedCardId) {
-      setPoppedCardId(selectedCardId);
-      setPoppedCardMode('medium');
-      startEditingCard(selectedCardId);
+    if (!isLargeMode) {
+      const nextRailWidth = leftRailRef.current?.getBoundingClientRect().width;
+      if (nextRailWidth) {
+        setLargeModeRailWidth(nextRailWidth);
+      }
+      openLargeMode(selectedCardId);
       return;
     }
 
-    if (poppedCardMode === 'medium') {
-      setPoppedCardMode('large');
-      return;
-    }
-
-    closePoppedCard();
+    closeLargeMode();
   };
 
   useEffect(() => {
     if (isSearchFocused) {
-      setSelectedCardId(null);
-      setEditingCardId(null);
+      clearCardFocus();
     }
-  }, [isSearchFocused, setEditingCardId, setSelectedCardId]);
+  }, [clearCardFocus, isSearchFocused]);
 
   useEffect(() => {
-    return () => {
-      if (noticeTimeoutRef.current !== null) {
-        window.clearTimeout(noticeTimeoutRef.current);
-      }
-    };
-  }, []);
-
-  useEffect(() => {
-    if (visibleCards.length === 0) {
+    if (cards.length === 0) {
       resetCardInteractionState();
       return;
     }
@@ -159,30 +142,22 @@ export default function App() {
       return;
     }
 
-    if (!selectedCardId || !visibleCards.some((card) => card.id === selectedCardId)) {
-      selectCard(visibleCards[0].id);
+    if (!selectedCardId || !cards.some((card) => card.id === selectedCardId)) {
+      selectCard(cards[0].id);
     }
 
-    if (editingCardId && !visibleCards.some((card) => card.id === editingCardId)) {
-      setEditingCardId(null);
+    if (editingCardId && !cards.some((card) => card.id === editingCardId)) {
+      stopEditingCard(editingCardId);
     }
 
-    if (poppedCardId && !cards.some((card) => card.id === poppedCardId)) {
-      setPoppedCardId(null);
-      setPoppedCardMode(null);
-    }
   }, [
     cards,
     editingCardId,
     isSearchFocused,
-    poppedCardId,
     resetCardInteractionState,
     selectCard,
     selectedCardId,
-    setEditingCardId,
-    setPoppedCardId,
-    setPoppedCardMode,
-    visibleCards,
+    stopEditingCard,
   ]);
 
   useEffect(() => {
@@ -194,8 +169,8 @@ export default function App() {
       if (event.key === 'Escape' && isSearchFocused) {
         event.preventDefault();
         setIsSearchFocused(false);
-        if (visibleCards.length > 0) {
-          setSelectedCardId(visibleCards[0].id);
+        if (cards.length > 0) {
+          selectCard(cards[0].id);
         }
         searchInputRef.current?.blur();
         return;
@@ -203,20 +178,20 @@ export default function App() {
 
       if (event.key === 'Escape' && editingCardId) {
         event.preventDefault();
-        setEditingCardId(null);
+        stopEditingCard(editingCardId);
         return;
       }
 
-      if (event.key === 'Escape' && poppedCardId) {
+      if (event.key === 'Escape' && isLargeMode) {
         event.preventDefault();
-        closePoppedCard();
+        closeLargeMode();
         return;
       }
 
-      if (editingCardId || isSearchFocused || visibleCards.length === 0) return;
+      if (editingCardId || isSearchFocused || cards.length === 0) return;
       if (event.key === ' ') {
         event.preventDefault();
-        cyclePoppedCard();
+        toggleLargeMode();
         return;
       }
       if (event.key === 'Enter') {
@@ -224,26 +199,25 @@ export default function App() {
         void copySelectedCardContent();
         return;
       }
-      if (poppedCardId) return;
       if (!['ArrowDown', 'ArrowUp', 'k', 'i'].includes(event.key)) return;
 
       event.preventDefault();
 
-      const currentIndex = visibleCards.findIndex((card) => card.id === selectedCardId);
+      const currentIndex = cards.findIndex((card) => card.id === selectedCardId);
       const safeIndex = currentIndex === -1 ? 0 : currentIndex;
       const nextIndex =
         event.key === 'ArrowDown' || event.key === 'k'
-          ? Math.min(safeIndex + 1, visibleCards.length - 1)
+          ? Math.min(safeIndex + 1, cards.length - 1)
           : Math.max(safeIndex - 1, 0);
 
-      selectCard(visibleCards[nextIndex].id);
+      selectCard(cards[nextIndex].id);
     };
 
     window.addEventListener('keydown', handleKeyDown);
     return () => {
       window.removeEventListener('keydown', handleKeyDown);
     };
-  }, [editingCardId, isSearchFocused, poppedCardId, poppedCardMode, selectedCard, selectedCardId, visibleCards]);
+  }, [cards, closeLargeMode, editingCardId, isLargeMode, isSearchFocused, selectCard, selectedCard, selectedCardId, stopEditingCard]);
 
   useEffect(() => {
     if (!window.kardsWindow) {
@@ -291,7 +265,7 @@ export default function App() {
     if (!window.kardsWindow) return;
 
     const syncWindowBoundsToPopoutState = async () => {
-      if (poppedCardId && poppedCardMode) {
+      if (isLargeMode) {
         const currentBounds = await window.kardsWindow.getBounds();
         if (!currentBounds) return;
 
@@ -299,15 +273,11 @@ export default function App() {
           previousWindowBoundsRef.current = currentBounds;
         }
 
-        const minimumBounds =
-          poppedCardMode === 'large'
-            ? { width: 1280, height: 900 }
-            : { width: 1040, height: 760 };
-        const nextWidth = Math.max(currentBounds.width, minimumBounds.width);
-        const nextHeight = Math.max(currentBounds.height, minimumBounds.height);
+        const minimumWidth = 1280;
+        const nextWidth = Math.max(currentBounds.width, minimumWidth);
 
-        if (nextWidth !== currentBounds.width || nextHeight !== currentBounds.height) {
-          await window.kardsWindow.setBounds({ width: nextWidth, height: nextHeight });
+        if (nextWidth !== currentBounds.width) {
+          await window.kardsWindow.setBounds({ width: nextWidth, height: currentBounds.height });
         }
 
         return;
@@ -320,11 +290,39 @@ export default function App() {
     };
 
     void syncWindowBoundsToPopoutState();
-  }, [poppedCardId, poppedCardMode]);
+  }, [isLargeMode]);
+
+  useEffect(() => {
+    if (!isLargeMode) {
+      setWorkspaceEditorStyle(undefined);
+      setLargeModeRailWidth(null);
+      return;
+    }
+
+    const updateWorkspaceEditorStyle = () => {
+      const shellRect = appShellRef.current?.getBoundingClientRect();
+      if (!shellRect || !largeModeRailWidth) return;
+
+      const gap = 16;
+      const left = largeModeRailWidth + gap;
+      const width = Math.max(320, shellRect.width - left);
+
+      setWorkspaceEditorStyle({
+        left: `${left}px`,
+        width: `${width}px`,
+      });
+    };
+
+    updateWorkspaceEditorStyle();
+    window.addEventListener('resize', updateWorkspaceEditorStyle);
+    return () => {
+      window.removeEventListener('resize', updateWorkspaceEditorStyle);
+    };
+  }, [isLargeMode, largeModeRailWidth]);
 
   useEffect(() => {
     const loadMoreNode = loadMoreRef.current;
-    if (!loadMoreNode || !hasMoreCards || isHydratingCards || isLoadingMoreCards || poppedCardId) return;
+    if (!loadMoreNode || !hasMoreCards || isHydratingCards || isLoadingMoreCards) return;
 
     const observer = new IntersectionObserver((entries) => {
       const [entry] = entries;
@@ -336,7 +334,7 @@ export default function App() {
     return () => {
       observer.disconnect();
     };
-  }, [hasMoreCards, isHydratingCards, isLoadingMoreCards, loadMoreCards, poppedCardId, listCards.length]);
+  }, [cards.length, hasMoreCards, isHydratingCards, isLoadingMoreCards, loadMoreCards]);
 
   const settingsFields = [
     {
@@ -388,8 +386,23 @@ export default function App() {
     ...overrides,
   });
 
-  return (
-    <main className="app-shell">
+  const buildListCardItemProps = (card: Card): CardItemProps =>
+    buildCardItemProps(
+      card,
+      isLargeMode
+        ? {
+            isEditing: false,
+            forceCollapsed: true,
+          }
+        : {},
+    );
+
+  const leftRail = (
+    <div
+      ref={leftRailRef}
+      className="app-rail"
+      style={isLargeMode && largeModeRailWidth ? { width: `${largeModeRailWidth}px` } : undefined}
+    >
       <div className="app-topbar">
         <AppTitleBar
           areAllLoadedCardsCollapsed={areAllLoadedCardsCollapsed}
@@ -426,18 +439,39 @@ export default function App() {
         />
       </div>
 
-      <CardList
-        listCards={listCards}
-        poppedCard={poppedCard}
-        poppedCardMode={poppedCardMode}
-        poppedCardId={poppedCardId}
-        editingCardId={editingCardId}
-        loadMoreRef={loadMoreRef}
-        buildCardItemProps={buildCardItemProps}
-        onSelectCard={selectCard}
-        onClosePoppedCard={closePoppedCard}
-      />
+      <CardList listCards={cards} loadMoreRef={loadMoreRef} buildCardItemProps={buildListCardItemProps} />
+    </div>
+  );
 
+  return (
+    <main ref={appShellRef} className="app-shell">
+      {isLargeMode && selectedCard ? (
+        <>
+          {leftRail}
+
+          <LargeCardPane
+            style={workspaceEditorStyle}
+            card={selectedCard}
+            titleError={titleErrors[selectedCard.id]}
+            isEditing={editingCardId === selectedCard.id}
+            onClose={closeLargeMode}
+            onSelect={() => selectCard(selectedCard.id)}
+            onStartEditing={() => startEditingCard(selectedCard.id)}
+            onStopEditing={() => stopEditingCard(selectedCard.id)}
+            onTitleChange={updateCardTitle}
+            onTitleBlur={validateCardTitle}
+            onTagsChange={updateCardTags}
+            onTagClick={setSearchQuery}
+            onContentChange={updateCardContent}
+            onEditorHeightChange={updateCardEditorHeight}
+            onCollapsedChange={updateCardCollapsed}
+            onContentMaskedToggle={toggleCardContentMasked}
+            onRemove={removeCard}
+          />
+        </>
+      ) : (
+        leftRail
+      )}
     </main>
   );
 }

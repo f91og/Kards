@@ -11,6 +11,7 @@ export type CardItemProps = {
   isSelected: boolean;
   isEditing: boolean;
   isPoppedOut?: boolean;
+  forceCollapsed?: boolean;
   titleError?: string;
   onSelect: () => void;
   onStartEditing: () => void;
@@ -39,6 +40,7 @@ export function CardItem({
   isSelected,
   isEditing,
   isPoppedOut = false,
+  forceCollapsed = false,
   titleError,
   onSelect,
   onStartEditing,
@@ -57,9 +59,8 @@ export function CardItem({
   const cardBodyRef = useRef<HTMLDivElement | null>(null);
   const titleInputRef = useRef<HTMLInputElement | null>(null);
   const [editorHeight, setEditorHeight] = useState(() => normalizeEditorHeight(card.editorHeight));
-  const [isCollapsed, setIsCollapsed] = useState(card.isCollapsed);
   const resizeStateRef = useRef<{ startY: number; startHeight: number } | null>(null);
-  const editorHeightRef = useRef(card.editorHeight);
+  const editorHeightRef = useRef(normalizeEditorHeight(card.editorHeight));
 
   const closeMenu = () => {
     if (menuRef.current) {
@@ -102,11 +103,7 @@ export function CardItem({
   const toggleCollapsed = () => {
     closeMenu();
     stopResize();
-    setIsCollapsed((currentState) => {
-      const nextState = !currentState;
-      onCollapsedChange(card.id, nextState);
-      return nextState;
-    });
+    onCollapsedChange(card.id, !card.isCollapsed);
   };
 
   const copyCardContent = async () => {
@@ -163,6 +160,7 @@ export function CardItem({
   };
 
   const maskedContent = htmlToPlainText(card.content).replace(/\S/g, '*');
+  const isDisplayedCollapsed = isPoppedOut ? false : forceCollapsed ? true : card.isCollapsed;
 
   const editor = useEditor({
     immediatelyRender: false,
@@ -201,7 +199,7 @@ export function CardItem({
     onUpdate: ({ editor: currentEditor }) => {
       onContentChange(card.id, currentEditor.getHTML());
     },
-  });
+  }, [card.id, isEditing, isSelected]);
 
   useEffect(() => {
     const normalizedEditorHeight = normalizeEditorHeight(card.editorHeight);
@@ -214,8 +212,17 @@ export function CardItem({
   }, [editor, isEditing]);
 
   useEffect(() => {
-    setIsCollapsed(card.isCollapsed);
-  }, [card.isCollapsed]);
+    if (!editor) return;
+    if (editor.getHTML() === card.content) return;
+    editor.commands.setContent(card.content, { emitUpdate: false });
+  }, [card.content, editor]);
+
+  useEffect(() => {
+    return () => {
+      window.removeEventListener('mousemove', handleResize);
+      window.removeEventListener('mouseup', stopResize);
+    };
+  }, []);
 
   useEffect(() => {
     if (!isSelected) {
@@ -229,7 +236,7 @@ export function CardItem({
       onMouseDown={() => onSelect()}
     >
       <div className="card-item__menu">
-        {isCollapsed ? (
+        {isDisplayedCollapsed ? (
           <button className="card-menu__trigger" type="button" aria-label="Expand card" onClick={toggleCollapsed}>
             <svg viewBox="0 0 16 16" aria-hidden="true" className="card-menu__icon">
               <path
@@ -310,7 +317,7 @@ export function CardItem({
         ref={titleInputRef}
         className={`card-field card-field--title${titleError ? ' card-field--error' : ''}`}
         value={card.title}
-        readOnly={!isEditing}
+        readOnly={!isEditing || isDisplayedCollapsed}
         onMouseDown={activateTitleEditing}
         onChange={(event) => onTitleChange(card.id, event.target.value)}
         onBlur={() => {
@@ -326,8 +333,8 @@ export function CardItem({
 
       {titleError ? <div className="card-error">{titleError}</div> : null}
 
-      <div ref={cardBodyRef} className={`card-item__body${isCollapsed ? ' card-item__body--collapsed' : ''}`}>
-        {isCollapsed ? null : (
+      <div ref={cardBodyRef} className={`card-item__body${isDisplayedCollapsed ? ' card-item__body--collapsed' : ''}`}>
+        {isDisplayedCollapsed ? null : (
           <div className="single-pane-editor" style={isPoppedOut ? undefined : { height: `${editorHeight}px` }}>
             {card.isContentMasked ? (
               <div className="card-masked-content" onMouseDown={() => onSelect()}>
@@ -339,7 +346,7 @@ export function CardItem({
           </div>
         )}
 
-        {!isCollapsed ? (
+        {!isDisplayedCollapsed ? (
           <TagInput
             tags={card.tags}
             onChange={(tags) => onTagsChange(card.id, tags)}
