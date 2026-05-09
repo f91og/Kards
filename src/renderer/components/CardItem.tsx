@@ -1,4 +1,6 @@
 import StarterKit from '@tiptap/starter-kit';
+import TaskItem from '@tiptap/extension-task-item';
+import TaskList from '@tiptap/extension-task-list';
 import { EditorContent, useEditor } from '@tiptap/react';
 import { useEffect, useRef, useState, type MouseEvent as ReactMouseEvent } from 'react';
 import { TagInput } from '@/components/TagInput';
@@ -164,7 +166,13 @@ export function CardItem({
 
   const editor = useEditor({
     immediatelyRender: false,
-    extensions: [StarterKit],
+    extensions: [
+      StarterKit,
+      TaskList,
+      TaskItem.configure({
+        nested: true,
+      }),
+    ],
     editable: isEditing,
     editorProps: {
       attributes: {

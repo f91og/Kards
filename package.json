@@ -22,6 +22,8 @@
   "dependencies": {
     "@radix-ui/react-slot": "^1.2.4",
     "@tiptap/extension-placeholder": "^3.22.4",
+    "@tiptap/extension-task-item": "^3.22.4",
+    "@tiptap/extension-task-list": "^3.22.4",
     "@tiptap/react": "^3.22.4",
     "@tiptap/starter-kit": "^3.22.4",
     "better-sqlite3": "^12.6.2",
