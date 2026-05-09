@@ -9,6 +9,7 @@ export interface CardRow {
   sort_order: number | null;
   editor_height: number | null;
   is_collapsed: number | null;
+  is_content_masked: number | null;
 }
 
 export type CardContentFormat = 'html';
@@ -26,6 +27,7 @@ export interface Card {
   position: number;
   editorHeight: number;
   isCollapsed: boolean;
+  isContentMasked: boolean;
 }
 
 export type NewCard = {
@@ -39,6 +41,7 @@ export type NewCard = {
   position?: number;
   editorHeight?: number;
   isCollapsed?: boolean;
+  isContentMasked?: boolean;
 };
 
 export type CardUpdate = {
@@ -51,6 +54,7 @@ export type CardUpdate = {
   position: number;
   editorHeight: number;
   isCollapsed: boolean;
+  isContentMasked: boolean;
 };
 
 export interface WindowBoundsState {
@@ -164,6 +168,7 @@ export function cardRowToModel(row: CardRow | null | undefined): Card | null {
     position: row.sort_order ?? 0,
     editorHeight: row.editor_height ?? 48,
     isCollapsed: Boolean(row.is_collapsed),
+    isContentMasked: Boolean(row.is_content_masked),
   };
 }
 

@@ -7,7 +7,6 @@ import { collectUniqueTags, copyCardContentToClipboard, type Card } from '../sha
 import { useEffect, useMemo, useRef, useState } from 'react';
 import type { CardItemProps } from '@/components/CardItem';
 
-type PoppedCardMode = 'medium' | 'large';
 type ThemeMode = 'light' | 'dark';
 
 const DEFAULT_TITLE_FONT_SIZE_REM = 0.7;
@@ -28,11 +27,6 @@ export default function App() {
   const [isSearchFocused, setIsSearchFocused] = useState(false);
   const [isPinned, setIsPinned] = useState(false);
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
-  const [noticeMessage, setNoticeMessage] = useState<string | null>(null);
-  const [selectedCardId, setSelectedCardId] = useState<string | null>(null);
-  const [editingCardId, setEditingCardId] = useState<string | null>(null);
-  const [poppedCardId, setPoppedCardId] = useState<string | null>(null);
-  const [poppedCardMode, setPoppedCardMode] = useState<PoppedCardMode | null>(null);
   const [themeMode, setThemeMode] = useStoredState<ThemeMode>(THEME_STORAGE_KEY, 'light', {
     deserialize: (rawValue) => (rawValue === 'dark' ? 'dark' : 'light'),
     serialize: (value) => value,
@@ -77,7 +71,20 @@ export default function App() {
     hasMoreCards,
     isHydratingCards,
     isLoadingMoreCards,
+    selectedCardId,
+    editingCardId,
+    poppedCardId,
+    poppedCardMode,
     setSearchQuery,
+    setSelectedCardId,
+    setEditingCardId,
+    setPoppedCardId,
+    setPoppedCardMode,
+    selectCard,
+    startEditingCard,
+    stopEditingCard,
+    closePoppedCard,
+    resetCardInteractionState,
     hydrateCards,
     loadMoreCards,
     addCard,
@@ -88,6 +95,7 @@ export default function App() {
     updateCardContent,
     updateCardEditorHeight,
     updateCardCollapsed,
+    toggleCardContentMasked,
     removeCard,
   } = useAppStore();
   const normalizedQuery = searchQuery.trim().toLocaleLowerCase();
@@ -99,31 +107,6 @@ export default function App() {
   const showTagDropdown = isSearchFocused && normalizedQuery === '' && allTags.length > 0;
   const selectedCard = selectedCardId ? visibleCards.find((card) => card.id === selectedCardId) ?? null : null;
 
-  const showNotice = (message: string) => {
-    setNoticeMessage(message);
-    if (noticeTimeoutRef.current !== null) {
-      window.clearTimeout(noticeTimeoutRef.current);
-    }
-    noticeTimeoutRef.current = window.setTimeout(() => {
-      setNoticeMessage(null);
-      noticeTimeoutRef.current = null;
-    }, 2200);
-  };
-
-  const selectCard = (cardId: string) => {
-    setSelectedCardId(cardId);
-    setEditingCardId((currentEditingCardId) => (currentEditingCardId === cardId ? currentEditingCardId : null));
-  };
-
-  const startEditingCard = (cardId: string) => {
-    selectCard(cardId);
-    setEditingCardId(cardId);
-  };
-
-  const stopEditingCard = (cardId: string) => {
-    setEditingCardId((currentEditingCardId) => (currentEditingCardId === cardId ? null : currentEditingCardId));
-  };
-
   const copySelectedCardContent = async () => {
     if (!selectedCardId) return;
 
@@ -133,23 +116,13 @@ export default function App() {
     await copyCardContentToClipboard(selectedCard.content);
   };
 
-  const closePoppedCard = () => {
-    setPoppedCardId(null);
-    setPoppedCardMode(null);
-    setEditingCardId(null);
-  };
-
   const cyclePoppedCard = () => {
     if (!selectedCardId) return;
-    if (selectedCard?.isCollapsed) {
-      showNotice('Collapsed card cannot be enlarged');
-      return;
-    }
 
     if (poppedCardId !== selectedCardId) {
       setPoppedCardId(selectedCardId);
       setPoppedCardMode('medium');
-      setEditingCardId(selectedCardId);
+      startEditingCard(selectedCardId);
       return;
     }
 
@@ -166,7 +139,7 @@ export default function App() {
       setSelectedCardId(null);
       setEditingCardId(null);
     }
-  }, [isSearchFocused]);
+  }, [isSearchFocused, setEditingCardId, setSelectedCardId]);
 
   useEffect(() => {
     return () => {
@@ -178,10 +151,7 @@ export default function App() {
 
   useEffect(() => {
     if (visibleCards.length === 0) {
-      setSelectedCardId(null);
-      setEditingCardId(null);
-      setPoppedCardId(null);
-      setPoppedCardMode(null);
+      resetCardInteractionState();
       return;
     }
 
@@ -190,7 +160,7 @@ export default function App() {
     }
 
     if (!selectedCardId || !visibleCards.some((card) => card.id === selectedCardId)) {
-      setSelectedCardId(visibleCards[0].id);
+      selectCard(visibleCards[0].id);
     }
 
     if (editingCardId && !visibleCards.some((card) => card.id === editingCardId)) {
@@ -201,7 +171,19 @@ export default function App() {
       setPoppedCardId(null);
       setPoppedCardMode(null);
     }
-  }, [cards, editingCardId, isSearchFocused, poppedCardId, selectedCardId, visibleCards]);
+  }, [
+    cards,
+    editingCardId,
+    isSearchFocused,
+    poppedCardId,
+    resetCardInteractionState,
+    selectCard,
+    selectedCardId,
+    setEditingCardId,
+    setPoppedCardId,
+    setPoppedCardMode,
+    visibleCards,
+  ]);
 
   useEffect(() => {
     void hydrateCards();
@@ -401,6 +383,7 @@ export default function App() {
     onContentChange: updateCardContent,
     onEditorHeightChange: updateCardEditorHeight,
     onCollapsedChange: updateCardCollapsed,
+    onContentMaskedToggle: toggleCardContentMasked,
     onRemove: removeCard,
     ...overrides,
   });
@@ -455,7 +438,6 @@ export default function App() {
         onClosePoppedCard={closePoppedCard}
       />
 
-      {noticeMessage ? <div className="app-notice">{noticeMessage}</div> : null}
     </main>
   );
 }

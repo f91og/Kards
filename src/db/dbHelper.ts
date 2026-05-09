@@ -44,7 +44,8 @@ function initSchema(database: DatabaseInstance): void {
     is_hidden INTEGER DEFAULT 0,
     sort_order INTEGER DEFAULT 0,
     editor_height INTEGER DEFAULT 48,
-    is_collapsed INTEGER DEFAULT 0
+    is_collapsed INTEGER DEFAULT 0,
+    is_content_masked INTEGER DEFAULT 0
   );`;
   const settingsStmt = `
   CREATE TABLE IF NOT EXISTS app_settings (
@@ -55,6 +56,7 @@ function initSchema(database: DatabaseInstance): void {
   database.prepare(settingsStmt).run();
   ensureColumn(database, 'cards', 'editor_height', `INTEGER DEFAULT ${DEFAULT_EDITOR_HEIGHT}`);
   ensureColumn(database, 'cards', 'is_collapsed', 'INTEGER DEFAULT 0');
+  ensureColumn(database, 'cards', 'is_content_masked', 'INTEGER DEFAULT 0');
 }
 
 function ensureColumn(
@@ -111,7 +113,7 @@ export function insertCard(card: NewCard): string {
   const createdAt = card.createdAt ?? new Date().toISOString();
   const updatedAt = card.updatedAt ?? createdAt;
   const stmt = d.prepare(
-    'INSERT INTO cards (id,title,content,tags,created_at,updated_at,is_hidden,sort_order,editor_height,is_collapsed) VALUES (?,?,?,?,?,?,?,?,?,?)',
+    'INSERT INTO cards (id,title,content,tags,created_at,updated_at,is_hidden,sort_order,editor_height,is_collapsed,is_content_masked) VALUES (?,?,?,?,?,?,?,?,?,?,?)',
   );
   try {
     stmt.run(
@@ -125,6 +127,7 @@ export function insertCard(card: NewCard): string {
       card.position ?? 0,
       card.editorHeight ?? DEFAULT_EDITOR_HEIGHT,
       card.isCollapsed ? 1 : 0,
+      card.isContentMasked ? 1 : 0,
     );
     return generatedId;
   } catch (e: any) {
@@ -142,7 +145,7 @@ export function updateCard(card: CardUpdate): number {
   if (card.updatedAt && card.updatedAt < existingCard.updatedAt) return 0;
 
   const stmt = d.prepare(
-    'UPDATE cards SET title = ?, content = ?, tags = ?, created_at = ?, updated_at = ?, is_hidden = ?, sort_order = ?, editor_height = ?, is_collapsed = ? WHERE id = ?',
+    'UPDATE cards SET title = ?, content = ?, tags = ?, created_at = ?, updated_at = ?, is_hidden = ?, sort_order = ?, editor_height = ?, is_collapsed = ?, is_content_masked = ? WHERE id = ?',
   );
   const info = stmt.run(
     card.title,
@@ -154,6 +157,7 @@ export function updateCard(card: CardUpdate): number {
     card.position,
     card.editorHeight,
     card.isCollapsed ? 1 : 0,
+    card.isContentMasked ? 1 : 0,
     card.id,
   );
   return info.changes;

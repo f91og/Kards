@@ -3,6 +3,8 @@ import { buildCardExcerpt, type Card } from '../../shared/models/card';
 
 const CARDS_PAGE_SIZE = 20;
 
+export type PoppedCardMode = 'medium' | 'large';
+
 type AppState = {
   cards: Card[];
   titleErrors: Record<string, string | undefined>;
@@ -10,6 +12,10 @@ type AppState = {
   hasMoreCards: boolean;
   isHydratingCards: boolean;
   isLoadingMoreCards: boolean;
+  selectedCardId: string | null;
+  editingCardId: string | null;
+  poppedCardId: string | null;
+  poppedCardMode: PoppedCardMode | null;
   hydrateCards: () => Promise<void>;
   loadMoreCards: () => Promise<void>;
   addCard: () => Promise<void>;
@@ -20,8 +26,18 @@ type AppState = {
   updateCardContent: (id: string, content: string) => Promise<void>;
   updateCardEditorHeight: (id: string, editorHeight: number) => Promise<void>;
   updateCardCollapsed: (id: string, isCollapsed: boolean) => Promise<void>;
+  toggleCardContentMasked: (id: string) => Promise<void>;
   removeCard: (id: string) => Promise<void>;
   setSearchQuery: (searchQuery: string) => void;
+  setSelectedCardId: (selectedCardId: string | null) => void;
+  setEditingCardId: (editingCardId: string | null) => void;
+  setPoppedCardId: (poppedCardId: string | null) => void;
+  setPoppedCardMode: (poppedCardMode: PoppedCardMode | null) => void;
+  selectCard: (cardId: string) => void;
+  startEditingCard: (cardId: string) => void;
+  stopEditingCard: (cardId: string) => void;
+  closePoppedCard: () => void;
+  resetCardInteractionState: () => void;
 };
 
 type PaginationState = {
@@ -85,6 +101,7 @@ async function persistCard(card: Card): Promise<Card | null> {
     position: card.position,
     editorHeight: card.editorHeight,
     isCollapsed: card.isCollapsed,
+    isContentMasked: card.isContentMasked,
   });
 }
 
@@ -187,6 +204,10 @@ export const useAppStore = create<AppState>((set, get) => ({
   hasMoreCards: true,
   isHydratingCards: false,
   isLoadingMoreCards: false,
+  selectedCardId: null,
+  editingCardId: null,
+  poppedCardId: null,
+  poppedCardMode: null,
   hydrateCards: async () => {
     await refreshCards(set, get, 'reset');
   },
@@ -309,6 +330,12 @@ export const useAppStore = create<AppState>((set, get) => ({
       isCollapsed,
     }));
   },
+  toggleCardContentMasked: async (id) => {
+    await updatePersistedCard(set, get, id, (card) => ({
+      ...card,
+      isContentMasked: !card.isContentMasked,
+    }));
+  },
   removeCard: async (id) => {
     if (!window.kardsCards) return;
     const fallbackCard = await window.kardsCards.delete(id);
@@ -338,4 +365,35 @@ export const useAppStore = create<AppState>((set, get) => ({
     await refreshCards(set, get, 'append');
   },
   setSearchQuery: (searchQuery) => set({ searchQuery }),
+  setSelectedCardId: (selectedCardId) => set({ selectedCardId }),
+  setEditingCardId: (editingCardId) => set({ editingCardId }),
+  setPoppedCardId: (poppedCardId) => set({ poppedCardId }),
+  setPoppedCardMode: (poppedCardMode) => set({ poppedCardMode }),
+  selectCard: (cardId) =>
+    set((state) => ({
+      selectedCardId: cardId,
+      editingCardId: state.editingCardId === cardId ? state.editingCardId : null,
+    })),
+  startEditingCard: (cardId) =>
+    set({
+      selectedCardId: cardId,
+      editingCardId: cardId,
+    }),
+  stopEditingCard: (cardId) =>
+    set((state) => ({
+      editingCardId: state.editingCardId === cardId ? null : state.editingCardId,
+    })),
+  closePoppedCard: () =>
+    set({
+      poppedCardId: null,
+      poppedCardMode: null,
+      editingCardId: null,
+    }),
+  resetCardInteractionState: () =>
+    set({
+      selectedCardId: null,
+      editingCardId: null,
+      poppedCardId: null,
+      poppedCardMode: null,
+    }),
 }));

@@ -1,8 +1,7 @@
 import type { RefObject } from 'react';
 import { CardItem, type CardItemProps } from '@/components/CardItem';
+import type { PoppedCardMode } from '@/store/useAppStore';
 import type { Card } from '../../shared/models/card';
-
-type PoppedCardMode = 'medium' | 'large';
 
 type BuildCardItemProps = (card: Card, overrides?: Partial<CardItemProps>) => CardItemProps;
 
