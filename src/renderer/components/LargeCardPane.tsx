@@ -1,48 +1,19 @@
-import { CardItem } from '@/components/CardItem';
-import type { Card } from '../../shared/models/card';
+import { CardItem, type CardItemProps } from '@/components/CardItem';
 import type { CSSProperties } from 'react';
 
 type LargeCardPaneProps = {
   style?: CSSProperties;
-  card: Card;
-  titleError?: string;
-  isEditing: boolean;
+  cardItemProps: CardItemProps;
   onClose: () => void;
-  onSelect: () => void;
-  onStartEditing: () => void;
-  onStopEditing: () => void;
-  onTitleChange: (id: string, title: string) => void;
-  onTitleBlur: (id: string) => void;
-  onTagsChange: (id: string, tags: string[]) => void;
-  onTagClick: (tag: string) => void;
-  onContentChange: (id: string, content: string) => void;
-  onEditorHeightChange: (id: string, editorHeight: number) => void;
-  onCollapsedChange: (id: string, isCollapsed: boolean) => void;
-  onContentMaskedToggle: (id: string) => void;
-  onRemove: (id: string) => void;
 };
 
 export function LargeCardPane({
   style,
-  card,
-  titleError,
-  isEditing,
+  cardItemProps,
   onClose,
-  onSelect,
-  onStartEditing,
-  onStopEditing,
-  onTitleChange,
-  onTitleBlur,
-  onTagsChange,
-  onTagClick,
-  onContentChange,
-  onEditorHeightChange,
-  onCollapsedChange,
-  onContentMaskedToggle,
-  onRemove,
 }: LargeCardPaneProps) {
   return (
-    <section className="app-workspace__editor" style={style} onMouseDown={onSelect}>
+    <section className="app-workspace__editor" style={style} onMouseDown={cardItemProps.onSelect}>
       <div className="app-workspace__editor-frame">
         <button
           type="button"
@@ -59,23 +30,7 @@ export function LargeCardPane({
         </button>
 
         <CardItem
-          card={card}
-          isSelected
-          isEditing={isEditing}
-          isPoppedOut
-          titleError={titleError}
-          onSelect={onSelect}
-          onStartEditing={onStartEditing}
-          onStopEditing={onStopEditing}
-          onTitleChange={onTitleChange}
-          onTitleBlur={onTitleBlur}
-          onTagsChange={onTagsChange}
-          onTagClick={onTagClick}
-          onContentChange={onContentChange}
-          onEditorHeightChange={onEditorHeightChange}
-          onCollapsedChange={onCollapsedChange}
-          onContentMaskedToggle={onContentMaskedToggle}
-          onRemove={onRemove}
+          {...cardItemProps}
         />
       </div>
     </section>

@@ -1,6 +1,6 @@
 import type { RefObject } from 'react';
 
-type SettingsField = {
+export type SettingsField = {
   label: string;
   min: string;
   max: string;

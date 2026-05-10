@@ -16,6 +16,15 @@ export function TagInput({ tags, onChange, onTagClick, onFocus, isEditing = true
   const isComposingRef = useRef(false);
   const normalizedTags = useMemo(() => normalizeTags(tags), [tags]);
 
+  const activateReadonlyState = () => {
+    if (!isEditing) {
+      onActivate?.();
+      return true;
+    }
+
+    return false;
+  };
+
   const commitDraft = () => {
     const nextTags = normalizeTags(draft.split(/\s+/));
 
@@ -55,8 +64,7 @@ export function TagInput({ tags, onChange, onTagClick, onFocus, isEditing = true
     <div
       className={`tag-input${isEditing ? '' : ' tag-input--readonly'}`}
       onClick={() => {
-        if (!isEditing) {
-          onActivate?.();
+        if (activateReadonlyState()) {
           return;
         }
         onFocus?.();
@@ -69,8 +77,7 @@ export function TagInput({ tags, onChange, onTagClick, onFocus, isEditing = true
             type="button"
             className="tag-pill"
             onClick={() => {
-              if (!isEditing) {
-                onActivate?.();
+              if (activateReadonlyState()) {
                 return;
               }
               onTagClick(tag);
@@ -96,7 +103,7 @@ export function TagInput({ tags, onChange, onTagClick, onFocus, isEditing = true
             placeholder={normalizedTags.length === 0 ? 'tags separated by space' : ''}
           />
         ) : normalizedTags.length === 0 ? (
-          <button type="button" className="tag-input__placeholder" onClick={onActivate}>
+          <button type="button" className="tag-input__placeholder" onClick={() => activateReadonlyState()}>
             Add tags
           </button>
         ) : null}
