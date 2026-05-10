@@ -82,7 +82,7 @@ function scheduleWindowBoundsSave(window: BrowserWindow): void {
 function createWindow(): void {
   const savedBounds = getWindowBounds();
   mainWindow = new BrowserWindow({
-    width: savedBounds?.width ?? 1200,
+    width: savedBounds?.width ?? 860,
     height: savedBounds?.height ?? 800,
     frame: false,
     titleBarStyle: 'hidden',
