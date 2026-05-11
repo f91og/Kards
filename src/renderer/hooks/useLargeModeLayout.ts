@@ -1,4 +1,5 @@
-import { useEffect, useRef, useState, type CSSProperties, type RefObject } from 'react';
+import { useEffect, useState, type CSSProperties, type RefObject } from 'react';
+import { useLargeModeWindowBounds } from '@/hooks/useLargeModeWindowBounds';
 
 type UseLargeModeLayoutParams = {
   isLargeMode: boolean;
@@ -11,9 +12,10 @@ export function useLargeModeLayout({
   appShellRef,
   leftRailRef,
 }: UseLargeModeLayoutParams) {
-  const previousWindowBoundsRef = useRef<KardsWindowBounds | null>(null);
   const [largeModeRailWidth, setLargeModeRailWidth] = useState<number | null>(null);
   const [workspaceEditorStyle, setWorkspaceEditorStyle] = useState<CSSProperties | undefined>(undefined);
+
+  useLargeModeWindowBounds(isLargeMode);
 
   const captureRailWidth = () => {
     const nextRailWidth = leftRailRef.current?.getBoundingClientRect().width;
@@ -21,37 +23,6 @@ export function useLargeModeLayout({
       setLargeModeRailWidth(nextRailWidth);
     }
   };
-
-  useEffect(() => {
-    if (!window.kardsWindow) return;
-
-    const syncWindowBoundsToPopoutState = async () => {
-      if (isLargeMode) {
-        const currentBounds = await window.kardsWindow.getBounds();
-        if (!currentBounds) return;
-
-        if (!previousWindowBoundsRef.current) {
-          previousWindowBoundsRef.current = currentBounds;
-        }
-
-        const minimumWidth = 1280;
-        const nextWidth = Math.max(currentBounds.width, minimumWidth);
-
-        if (nextWidth !== currentBounds.width) {
-          await window.kardsWindow.setBounds({ width: nextWidth, height: currentBounds.height });
-        }
-
-        return;
-      }
-
-      if (previousWindowBoundsRef.current) {
-        await window.kardsWindow.setBounds(previousWindowBoundsRef.current);
-        previousWindowBoundsRef.current = null;
-      }
-    };
-
-    void syncWindowBoundsToPopoutState();
-  }, [isLargeMode]);
 
   useEffect(() => {
     if (!isLargeMode) {

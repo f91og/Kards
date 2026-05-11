@@ -112,17 +112,6 @@ export function htmlToPlainText(content: string): string {
     .trim();
 }
 
-export async function copyCardContentToClipboard(content: string): Promise<void> {
-  const plainText = htmlToPlainText(content);
-  if (plainText === '') return;
-
-  try {
-    await navigator.clipboard.writeText(plainText);
-  } catch {
-    // Ignore clipboard failures for now.
-  }
-}
-
 export function parseStoredTags(tags: string | null | undefined): string[] {
   if (!tags) return [];
 

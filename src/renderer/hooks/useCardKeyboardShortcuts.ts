@@ -31,13 +31,28 @@ export function useCardKeyboardShortcuts({
   copySelectedCardContent,
 }: UseCardKeyboardShortcutsParams) {
   useEffect(() => {
+    const selectFirstCard = () => {
+      if (cards.length > 0) {
+        selectCard(cards[0].id);
+      }
+    };
+
+    const moveSelection = (direction: 'next' | 'previous') => {
+      const currentIndex = cards.findIndex((card) => card.id === selectedCardId);
+      const safeIndex = currentIndex === -1 ? 0 : currentIndex;
+      const nextIndex =
+        direction === 'next'
+          ? Math.min(safeIndex + 1, cards.length - 1)
+          : Math.max(safeIndex - 1, 0);
+
+      selectCard(cards[nextIndex].id);
+    };
+
     const handleKeyDown = (event: KeyboardEvent) => {
       if (event.key === 'Escape' && isSearchFocused) {
         event.preventDefault();
         setIsSearchFocused(false);
-        if (cards.length > 0) {
-          selectCard(cards[0].id);
-        }
+        selectFirstCard();
         searchInputRef.current?.blur();
         return;
       }
@@ -68,15 +83,7 @@ export function useCardKeyboardShortcuts({
       if (!['ArrowDown', 'ArrowUp', 'k', 'i'].includes(event.key)) return;
 
       event.preventDefault();
-
-      const currentIndex = cards.findIndex((card) => card.id === selectedCardId);
-      const safeIndex = currentIndex === -1 ? 0 : currentIndex;
-      const nextIndex =
-        event.key === 'ArrowDown' || event.key === 'k'
-          ? Math.min(safeIndex + 1, cards.length - 1)
-          : Math.max(safeIndex - 1, 0);
-
-      selectCard(cards[nextIndex].id);
+      moveSelection(event.key === 'ArrowDown' || event.key === 'k' ? 'next' : 'previous');
     };
 
     window.addEventListener('keydown', handleKeyDown);

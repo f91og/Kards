@@ -1,7 +1,7 @@
 import { create } from 'zustand';
 import { buildCardExcerpt, type Card } from '../../shared/models/card';
-
-const CARDS_PAGE_SIZE = 20;
+import { deleteCard, createCard, getCardsPageSize, listCards, updateCard as persistUpdatedCard } from './cardsRepository';
+import { findCard, matchesSearch, mergeCard, normalizeKeyword, sortCards, validateCardTitle as getCardTitleError } from './cardStoreUtils';
 
 type AppState = {
   cards: Card[];
@@ -40,42 +40,6 @@ type PaginationState = {
   activeKeyword: string;
 };
 
-function sortCards(cards: Card[]): Card[] {
-  return [...cards].sort((left, right) => right.position - left.position || right.createdAt.localeCompare(left.createdAt));
-}
-
-function findCard(cards: Card[], id: string): Card | undefined {
-  return cards.find((card) => card.id === id);
-}
-
-function mergeCard(cards: Card[], nextCard: Card): Card[] {
-  const hasCard = cards.some((card) => card.id === nextCard.id);
-  if (!hasCard) return sortCards([nextCard, ...cards]);
-  return sortCards(cards.map((card) => (card.id === nextCard.id ? nextCard : card)));
-}
-
-function normalizeKeyword(keyword: string): string {
-  return keyword.trim();
-}
-
-function matchesSearch(card: Card, keyword: string): boolean {
-  const normalizedKeyword = normalizeKeyword(keyword).toLocaleLowerCase();
-  if (normalizedKeyword === '') return true;
-
-  const haystack = [card.title, card.tags.join(' '), card.excerpt].join(' ').toLocaleLowerCase();
-  return haystack.includes(normalizedKeyword);
-}
-
-async function fetchCardsPage(offset: number, keyword: string): Promise<Card[]> {
-  if (!window.kardsCards) return [];
-
-  return window.kardsCards.list({
-    limit: CARDS_PAGE_SIZE,
-    offset,
-    keyword,
-  });
-}
-
 const latestPersistRequestByCardId: Record<string, number> = {};
 let nextPersistRequestId = 1;
 const paginationState: PaginationState = {
@@ -84,9 +48,7 @@ const paginationState: PaginationState = {
 };
 
 async function persistCard(card: Card): Promise<Card | null> {
-  if (!window.kardsCards) return null;
-
-  return window.kardsCards.update({
+  return persistUpdatedCard({
     id: card.id,
     title: card.title,
     content: card.content,
@@ -128,7 +90,7 @@ async function refreshCards(
   }
 
   const currentOffset = mode === 'reset' ? 0 : paginationState.loadedCount;
-  const nextCards = await fetchCardsPage(currentOffset, keyword);
+  const nextCards = await listCards({ offset: currentOffset, keyword });
 
   if (paginationState.activeKeyword !== keyword) {
     set(() => ({
@@ -144,7 +106,7 @@ async function refreshCards(
 
     return {
       cards,
-      hasMoreCards: nextCards.length === CARDS_PAGE_SIZE,
+      hasMoreCards: nextCards.length === getCardsPageSize(),
       isHydratingCards: false,
       isLoadingMoreCards: false,
     };
@@ -209,8 +171,7 @@ export const useAppStore = create<AppState>((set, get) => ({
     await refreshCards(set, get, 'append');
   },
   addCard: async () => {
-    if (!window.kardsCards) return;
-    const card = await window.kardsCards.create();
+    const card = await createCard();
     if (!card) return;
 
     set((state) => {
@@ -266,18 +227,7 @@ export const useAppStore = create<AppState>((set, get) => ({
     if (!currentCard) return false;
 
     const normalizedTitle = currentCard.title.trim();
-    let error: string | undefined;
-
-    if (normalizedTitle === '') {
-      error = 'Title cannot be empty.';
-    } else {
-      const hasDuplicate = get().cards.some(
-        (card) => card.id !== id && card.title.trim().toLocaleLowerCase() === normalizedTitle.toLocaleLowerCase(),
-      );
-      if (hasDuplicate) {
-        error = 'Title must be unique.';
-      }
-    }
+    const error = getCardTitleError(get().cards, id, normalizedTitle);
 
     set((state) => ({
       titleErrors: {
@@ -331,8 +281,7 @@ export const useAppStore = create<AppState>((set, get) => ({
     }));
   },
   removeCard: async (id) => {
-    if (!window.kardsCards) return;
-    const fallbackCard = await window.kardsCards.delete(id);
+    const fallbackCard = await deleteCard(id);
 
     set((state) => {
       const filteredCards = state.cards.filter((card) => card.id !== id);

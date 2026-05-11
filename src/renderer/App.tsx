@@ -6,8 +6,9 @@ import { useAppSettings } from '@/hooks/useAppSettings';
 import { useCardKeyboardShortcuts } from '@/hooks/useCardKeyboardShortcuts';
 import { useInfiniteCardScroll } from '@/hooks/useInfiniteCardScroll';
 import { useLargeModeLayout } from '@/hooks/useLargeModeLayout';
+import { copyCardContentToClipboard } from '@/lib/clipboard';
 import { useAppStore } from '@/store/useAppStore';
-import { collectUniqueTags, copyCardContentToClipboard, type Card } from '../shared/models/card';
+import { collectUniqueTags, type Card } from '../shared/models/card';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import type { CardItemProps } from '@/components/CardItem';
 

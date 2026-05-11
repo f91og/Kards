@@ -1,5 +1,6 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { useStoredState } from '@/hooks/useStoredState';
+import { useAppSettingsEffects } from '@/hooks/useAppSettingsEffects';
 import type { SettingsField } from '@/components/AppTitleBar';
 
 type ThemeMode = 'light' | 'dark';
@@ -57,66 +58,52 @@ export function useAppSettings() {
     });
   }, []);
 
-  useEffect(() => {
-    document.body.dataset.theme = themeMode;
-  }, [themeMode]);
+  const closeSettings = () => {
+    setIsSettingsOpen(false);
+  };
 
-  useEffect(() => {
-    document.documentElement.style.setProperty('--card-title-font-size', `${titleFontSize}rem`);
-  }, [titleFontSize]);
+  useAppSettingsEffects({
+    themeMode,
+    titleFontSize,
+    contentFontSize,
+    windowOpacity,
+    isSettingsOpen,
+    settingsRef,
+    closeSettings,
+  });
 
-  useEffect(() => {
-    document.documentElement.style.setProperty('--card-content-font-size', `${contentFontSize}rem`);
-  }, [contentFontSize]);
-
-  useEffect(() => {
-    void window.kardsWindow?.setOpacity(windowOpacity);
-  }, [windowOpacity]);
-
-  useEffect(() => {
-    if (!isSettingsOpen) return;
-
-    const handlePointerDown = (event: MouseEvent) => {
-      if (!settingsRef.current?.contains(event.target as Node)) {
-        setIsSettingsOpen(false);
-      }
-    };
-
-    window.addEventListener('mousedown', handlePointerDown);
-    return () => {
-      window.removeEventListener('mousedown', handlePointerDown);
-    };
-  }, [isSettingsOpen]);
-
-  const settingsFields: readonly SettingsField[] = [
-    {
-      label: 'Title size',
-      min: '0.5',
-      max: '1.4',
-      step: '0.02',
-      value: titleFontSize,
-      onChange: setTitleFontSize,
-      formatValue: (nextValue: number) => `${nextValue.toFixed(2)}rem`,
-    },
-    {
-      label: 'Content size',
-      min: '0.7',
-      max: '1.4',
-      step: '0.02',
-      value: contentFontSize,
-      onChange: setContentFontSize,
-      formatValue: (nextValue: number) => `${nextValue.toFixed(2)}rem`,
-    },
-    {
-      label: 'Transparency',
-      min: '0.35',
-      max: '1',
-      step: '0.01',
-      value: windowOpacity,
-      onChange: setWindowOpacity,
-      formatValue: (nextValue: number) => `${Math.round(nextValue * 100)}%`,
-    },
-  ];
+  const settingsFields: readonly SettingsField[] = useMemo(
+    () => [
+      {
+        label: 'Title size',
+        min: '0.5',
+        max: '1.4',
+        step: '0.02',
+        value: titleFontSize,
+        onChange: setTitleFontSize,
+        formatValue: (nextValue: number) => `${nextValue.toFixed(2)}rem`,
+      },
+      {
+        label: 'Content size',
+        min: '0.7',
+        max: '1.4',
+        step: '0.02',
+        value: contentFontSize,
+        onChange: setContentFontSize,
+        formatValue: (nextValue: number) => `${nextValue.toFixed(2)}rem`,
+      },
+      {
+        label: 'Transparency',
+        min: '0.35',
+        max: '1',
+        step: '0.01',
+        value: windowOpacity,
+        onChange: setWindowOpacity,
+        formatValue: (nextValue: number) => `${Math.round(nextValue * 100)}%`,
+      },
+    ],
+    [contentFontSize, setContentFontSize, setTitleFontSize, setWindowOpacity, titleFontSize, windowOpacity],
+  );
 
   const toggleThemeMode = () => {
     setThemeMode((currentMode) => (currentMode === 'light' ? 'dark' : 'light'));

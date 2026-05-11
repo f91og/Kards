@@ -1,10 +1,10 @@
-import StarterKit from '@tiptap/starter-kit';
-import TaskItem from '@tiptap/extension-task-item';
-import TaskList from '@tiptap/extension-task-list';
-import { EditorContent, useEditor } from '@tiptap/react';
-import { useEffect, useRef, useState, type MouseEvent as ReactMouseEvent } from 'react';
+import { EditorContent } from '@tiptap/react';
+import { useEffect, useRef, type MouseEvent as ReactMouseEvent } from 'react';
 import { TagInput } from '@/components/TagInput';
-import { copyCardContentToClipboard, htmlToPlainText, type Card } from '../../shared/models/card';
+import { useCardEditor } from '@/hooks/useCardEditor';
+import { useResizableEditorHeight } from '@/hooks/useResizableEditorHeight';
+import { copyCardContentToClipboard } from '@/lib/clipboard';
+import { htmlToPlainText, type Card } from '../../shared/models/card';
 
 export type CardItemProps = {
   card: Card;
@@ -26,14 +26,6 @@ export type CardItemProps = {
   onContentMaskedToggle: (id: string) => void;
   onRemove: (id: string) => void;
 };
-
-const MIN_EDITOR_HEIGHT_PX = 48;
-const LEGACY_DEFAULT_EDITOR_HEIGHT_PX = 160;
-
-function normalizeEditorHeight(editorHeight: number): number {
-  if (editorHeight === LEGACY_DEFAULT_EDITOR_HEIGHT_PX) return MIN_EDITOR_HEIGHT_PX;
-  return Math.max(MIN_EDITOR_HEIGHT_PX, editorHeight);
-}
 
 export function CardItem({
   card,
@@ -58,9 +50,6 @@ export function CardItem({
   const menuRef = useRef<HTMLDetailsElement | null>(null);
   const cardBodyRef = useRef<HTMLDivElement | null>(null);
   const titleInputRef = useRef<HTMLInputElement | null>(null);
-  const [editorHeight, setEditorHeight] = useState(() => normalizeEditorHeight(card.editorHeight));
-  const resizeStateRef = useRef<{ startY: number; startHeight: number } | null>(null);
-  const editorHeightRef = useRef(normalizeEditorHeight(card.editorHeight));
 
   const closeMenu = () => {
     if (menuRef.current) {
@@ -68,37 +57,12 @@ export function CardItem({
     }
   };
 
-  const stopResize = () => {
-    const nextEditorHeight = editorHeightRef.current;
-    resizeStateRef.current = null;
-    window.removeEventListener('mousemove', handleResize);
-    window.removeEventListener('mouseup', stopResize);
-    onEditorHeightChange(card.id, nextEditorHeight);
-  };
-
-  const handleResize = (event: MouseEvent) => {
-    const resizeState = resizeStateRef.current;
-    if (!resizeState) return;
-
-    const nextHeight = resizeState.startHeight + (event.clientY - resizeState.startY);
-    const normalizedHeight = Math.max(MIN_EDITOR_HEIGHT_PX, nextHeight);
-    editorHeightRef.current = normalizedHeight;
-    setEditorHeight(normalizedHeight);
-  };
-
-  const startResize = (event: ReactMouseEvent<HTMLButtonElement>) => {
-    event.preventDefault();
-    event.stopPropagation();
-    closeMenu();
-
-    resizeStateRef.current = {
-      startY: event.clientY,
-      startHeight: editorHeight,
-    };
-
-    window.addEventListener('mousemove', handleResize);
-    window.addEventListener('mouseup', stopResize);
-  };
+  const { editorHeight, startResize, stopResize } = useResizableEditorHeight({
+    cardId: card.id,
+    editorHeight: card.editorHeight,
+    onEditorHeightChange,
+    onBeforeResize: closeMenu,
+  });
 
   const toggleCollapsed = () => {
     closeMenu();
@@ -162,50 +126,16 @@ export function CardItem({
   const maskedContent = htmlToPlainText(card.content).replace(/\S/g, '*');
   const isDisplayedCollapsed = isPoppedOut ? false : forceCollapsed ? true : card.isCollapsed;
 
-  const editor = useEditor({
-    immediatelyRender: false,
-    extensions: [
-      StarterKit,
-      TaskList,
-      TaskItem.configure({
-        nested: true,
-      }),
-    ],
-    editable: isEditing,
-    editorProps: {
-      attributes: {
-        class: `editor-content${isEditing ? ' editor-content--editing' : ' editor-content--readonly'}`,
-      },
-      handleDOMEvents: {
-        mousedown: () => {
-          if (!isSelected) {
-            onSelect();
-            return true;
-          }
-          if (!isEditing) {
-            activateContentEditing();
-            return true;
-          }
-          return false;
-        },
-        focus: () => {
-          onSelect();
-          closeMenu();
-          return false;
-        },
-      },
-    },
+  const editor = useCardEditor({
+    cardId: card.id,
     content: card.content,
-    onUpdate: ({ editor: currentEditor }) => {
-      onContentChange(card.id, currentEditor.getHTML());
-    },
-  }, [card.id, isEditing, isSelected]);
-
-  useEffect(() => {
-    const normalizedEditorHeight = normalizeEditorHeight(card.editorHeight);
-    editorHeightRef.current = normalizedEditorHeight;
-    setEditorHeight(normalizedEditorHeight);
-  }, [card.editorHeight]);
+    isEditing,
+    isSelected,
+    onSelect,
+    onRequestEdit: activateContentEditing,
+    onCloseMenu: closeMenu,
+    onContentChange: (content) => onContentChange(card.id, content),
+  });
 
   useEffect(() => {
     editor?.setEditable(isEditing);
@@ -216,13 +146,6 @@ export function CardItem({
     if (editor.getHTML() === card.content) return;
     editor.commands.setContent(card.content, { emitUpdate: false });
   }, [card.content, editor]);
-
-  useEffect(() => {
-    return () => {
-      window.removeEventListener('mousemove', handleResize);
-      window.removeEventListener('mouseup', stopResize);
-    };
-  }, []);
 
   useEffect(() => {
     if (!isSelected) {
