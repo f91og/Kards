@@ -6,7 +6,6 @@ import { useAppSettings } from '@/hooks/useAppSettings';
 import { useCardKeyboardShortcuts } from '@/hooks/useCardKeyboardShortcuts';
 import { useInfiniteCardScroll } from '@/hooks/useInfiniteCardScroll';
 import { useLargeModeLayout } from '@/hooks/useLargeModeLayout';
-import { copyCardContentToClipboard } from '@/lib/clipboard';
 import { useAppStore } from '@/store/useAppStore';
 import { collectUniqueTags, type Card } from '../shared/models/card';
 import { useEffect, useMemo, useRef, useState } from 'react';
@@ -71,12 +70,6 @@ export default function App() {
   const showTagDropdown = isSearchFocused && normalizedQuery === '' && allTags.length > 0;
   const selectedCard = selectedCardId ? cards.find((card) => card.id === selectedCardId) ?? null : null;
 
-  const copySelectedCardContent = async () => {
-    if (!selectedCard) return;
-
-    await copyCardContentToClipboard(selectedCard.content);
-  };
-
   const toggleLargeMode = () => {
     if (!selectedCardId) return;
 
@@ -127,6 +120,14 @@ export default function App() {
     void hydrateCards();
   }, [hydrateCards, normalizedQuery]);
 
+  useEffect(() => {
+    document.body.dataset.largeMode = isLargeMode && selectedCard ? 'true' : 'false';
+
+    return () => {
+      delete document.body.dataset.largeMode;
+    };
+  }, [isLargeMode, selectedCard]);
+
   useCardKeyboardShortcuts({
     cards,
     selectedCardId,
@@ -136,10 +137,11 @@ export default function App() {
     searchInputRef,
     setIsSearchFocused,
     selectCard,
+    startEditingCard,
     stopEditingCard,
+    updateCardCollapsed,
     closeLargeMode,
     toggleLargeMode,
-    copySelectedCardContent,
   });
 
   useInfiniteCardScroll({

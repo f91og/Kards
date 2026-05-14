@@ -10,10 +10,11 @@ type UseCardKeyboardShortcutsParams = {
   searchInputRef: RefObject<HTMLInputElement>;
   setIsSearchFocused: (isFocused: boolean) => void;
   selectCard: (cardId: string) => void;
+  startEditingCard: (cardId: string) => void;
   stopEditingCard: (cardId: string) => void;
+  updateCardCollapsed: (cardId: string, isCollapsed: boolean) => Promise<void>;
   closeLargeMode: () => void;
   toggleLargeMode: () => void;
-  copySelectedCardContent: () => Promise<void>;
 };
 
 export function useCardKeyboardShortcuts({
@@ -25,10 +26,11 @@ export function useCardKeyboardShortcuts({
   searchInputRef,
   setIsSearchFocused,
   selectCard,
+  startEditingCard,
   stopEditingCard,
+  updateCardCollapsed,
   closeLargeMode,
   toggleLargeMode,
-  copySelectedCardContent,
 }: UseCardKeyboardShortcutsParams) {
   useEffect(() => {
     const selectFirstCard = () => {
@@ -63,7 +65,7 @@ export function useCardKeyboardShortcuts({
         return;
       }
 
-      if (event.key === 'Escape' && isLargeMode) {
+      if (event.key === 'Escape' && isLargeMode && selectedCardId && !editingCardId) {
         event.preventDefault();
         closeLargeMode();
         return;
@@ -77,7 +79,17 @@ export function useCardKeyboardShortcuts({
       }
       if (event.key === 'Enter') {
         event.preventDefault();
-        void copySelectedCardContent();
+        if (isLargeMode) {
+          if (selectedCardId) {
+            startEditingCard(selectedCardId);
+          }
+          return;
+        }
+
+        const selectedCard = cards.find((card) => card.id === selectedCardId);
+        if (selectedCard) {
+          void updateCardCollapsed(selectedCard.id, !selectedCard.isCollapsed);
+        }
         return;
       }
       if (!['ArrowDown', 'ArrowUp', 'k', 'i'].includes(event.key)) return;
@@ -93,7 +105,6 @@ export function useCardKeyboardShortcuts({
   }, [
     cards,
     closeLargeMode,
-    copySelectedCardContent,
     editingCardId,
     isLargeMode,
     isSearchFocused,
@@ -101,7 +112,9 @@ export function useCardKeyboardShortcuts({
     selectCard,
     selectedCardId,
     setIsSearchFocused,
+    startEditingCard,
     stopEditingCard,
     toggleLargeMode,
+    updateCardCollapsed,
   ]);
 }

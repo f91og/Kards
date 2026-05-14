@@ -148,6 +148,22 @@ export function CardItem({
   }, [card.content, editor]);
 
   useEffect(() => {
+    if (!editor || !isEditing || !isSelected || isDisplayedCollapsed || card.isContentMasked) return;
+
+    const activeElement = document.activeElement;
+    if (
+      activeElement instanceof HTMLElement &&
+      (activeElement === titleInputRef.current || cardBodyRef.current?.contains(activeElement))
+    ) {
+      return;
+    }
+
+    requestAnimationFrame(() => {
+      editor.commands.focus('end');
+    });
+  }, [card.isContentMasked, editor, isDisplayedCollapsed, isEditing, isSelected]);
+
+  useEffect(() => {
     if (!isSelected) {
       closeMenu();
     }

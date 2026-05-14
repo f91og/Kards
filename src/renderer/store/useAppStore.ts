@@ -330,7 +330,7 @@ export const useAppStore = create<AppState>((set, get) => ({
   openLargeMode: (cardId) =>
     set({
       selectedCardId: cardId,
-      editingCardId: cardId,
+      editingCardId: null,
       isLargeMode: true,
     }),
   closeLargeMode: () =>
