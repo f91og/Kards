@@ -2,7 +2,12 @@ import { useEffect, useRef } from 'react';
 
 const MINIMUM_LARGE_MODE_WINDOW_WIDTH = 1120;
 
-export function useLargeModeWindowBounds(isLargeMode: boolean) {
+export type LargeModeDirection = 'left' | 'right';
+
+export function useLargeModeWindowBounds(
+  isLargeMode: boolean,
+  largeModeDirection: LargeModeDirection,
+) {
   const previousWindowBoundsRef = useRef<KardsWindowBounds | null>(null);
 
   useEffect(() => {
@@ -19,19 +24,25 @@ export function useLargeModeWindowBounds(isLargeMode: boolean) {
 
         const nextWidth = Math.max(currentBounds.width, MINIMUM_LARGE_MODE_WINDOW_WIDTH);
         if (nextWidth !== currentBounds.width) {
-          await window.kardsWindow.setBounds({ width: nextWidth, height: currentBounds.height });
+          const deltaWidth = nextWidth - currentBounds.width;
+          const nextX = largeModeDirection === 'left' ? currentBounds.x - deltaWidth : currentBounds.x;
+          await window.kardsWindow.setBounds({ x: nextX, width: nextWidth, height: currentBounds.height });
         }
 
         return;
       }
 
       if (previousWindowBoundsRef.current) {
-        const { width, height } = previousWindowBoundsRef.current;
-        await window.kardsWindow.setBounds({ width, height });
+        const { x, width, height } = previousWindowBoundsRef.current;
+        if (largeModeDirection === 'left') {
+          await window.kardsWindow.setBounds({ x, width, height });
+        } else {
+          await window.kardsWindow.setBounds({ width, height });
+        }
         previousWindowBoundsRef.current = null;
       }
     };
 
     void syncLargeModeWindowBounds();
-  }, [isLargeMode]);
+  }, [isLargeMode, largeModeDirection]);
 }

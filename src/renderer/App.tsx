@@ -59,7 +59,7 @@ export default function App() {
     toggleSettingsOpen,
     togglePin,
   } = useAppSettings();
-  const { largeModeRailWidth, workspaceEditorStyle, captureRailWidth } = useLargeModeLayout({
+  const { largeModeRailWidth, largeModeDirection, workspaceEditorStyle, prepareLargeModeLayout } = useLargeModeLayout({
     isLargeMode,
     appShellRef,
     leftRailRef,
@@ -70,11 +70,11 @@ export default function App() {
   const showTagDropdown = isSearchFocused && normalizedQuery === '' && allTags.length > 0;
   const selectedCard = selectedCardId ? cards.find((card) => card.id === selectedCardId) ?? null : null;
 
-  const toggleLargeMode = () => {
+  const toggleLargeMode = async () => {
     if (!selectedCardId) return;
 
     if (!isLargeMode) {
-      captureRailWidth();
+      await prepareLargeModeLayout();
       openLargeMode(selectedCardId);
       return;
     }
@@ -188,7 +188,14 @@ export default function App() {
     <div
       ref={leftRailRef}
       className="app-rail"
-      style={isLargeMode && largeModeRailWidth ? { width: `${largeModeRailWidth}px` } : undefined}
+      style={
+        isLargeMode && largeModeRailWidth
+          ? {
+              width: `${largeModeRailWidth}px`,
+              marginLeft: largeModeDirection === 'left' ? 'auto' : undefined,
+            }
+          : undefined
+      }
     >
       <div className="app-topbar">
         <AppTitleBar

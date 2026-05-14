@@ -15,6 +15,7 @@ declare global {
       togglePin: () => Promise<boolean>;
       getPinState: () => Promise<boolean>;
       getBounds: () => Promise<KardsWindowBounds | null>;
+      getWorkArea: () => Promise<KardsWindowBounds | null>;
       setOpacity: (opacity: number) => Promise<number>;
       setBounds: (bounds: { width: number; height: number; x?: number; y?: number }) => Promise<KardsWindowBounds | null>;
     };

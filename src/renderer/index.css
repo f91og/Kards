@@ -99,7 +99,6 @@ body[data-theme='dark'] {
 .app-workspace__editor {
   position: absolute;
   top: 0;
-  right: 0.35rem;
   bottom: 0;
   min-width: 0;
   min-height: calc(100vh - 1.35rem);

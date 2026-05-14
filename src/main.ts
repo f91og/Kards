@@ -93,6 +93,10 @@ function createWindow(): void {
     },
   });
 
+  if (process.platform === 'darwin') {
+    mainWindow.setWindowButtonVisibility(false);
+  }
+
   if (isDev) {
     mainWindow.loadURL('http://localhost:5173');
     mainWindow.webContents.openDevTools();
@@ -144,6 +148,15 @@ ipcMain.handle('window:get-bounds', (event) => {
   if (!window) return null;
 
   const { x, y, width, height } = window.getBounds();
+  return { x, y, width, height };
+});
+
+ipcMain.handle('window:get-work-area', (event) => {
+  const window = BrowserWindow.fromWebContents(event.sender);
+  if (!window) return null;
+
+  const targetDisplay = screen.getDisplayMatching(window.getBounds());
+  const { x, y, width, height } = targetDisplay.workArea;
   return { x, y, width, height };
 });
 
