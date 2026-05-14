@@ -1,7 +1,7 @@
 import { useEffect, useState, type CSSProperties, type RefObject } from 'react';
 import { useLargeModeWindowBounds } from '@/hooks/useLargeModeWindowBounds';
 
-const MINIMUM_LARGE_CARD_PANE_WIDTH = 720;
+const MINIMUM_LARGE_CARD_PANE_WIDTH = 620;
 
 type UseLargeModeLayoutParams = {
   isLargeMode: boolean;

@@ -122,10 +122,11 @@ body[data-theme='dark'] {
 
 .window-titlebar {
   display: flex;
-  align-items: center;
+  align-items: flex-start;
   justify-content: flex-end;
-  gap: 0.4rem;
-  height: 2rem;
+  gap: 0.32rem;
+  height: 1.72rem;
+  padding-top: 0.06rem;
   -webkit-app-region: drag;
 }
 
@@ -137,8 +138,8 @@ body[data-theme='dark'] {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 1.5rem;
-  height: 1.5rem;
+  width: 1.36rem;
+  height: 1.36rem;
   border: 1px solid var(--border);
   border-radius: 9999px;
   background: var(--surface);
@@ -163,8 +164,8 @@ body[data-theme='dark'] {
 .window-titlebar__theme-icon,
 .window-titlebar__pin-icon,
 .window-titlebar__settings-icon {
-  width: 0.74rem;
-  height: 0.74rem;
+  width: 0.68rem;
+  height: 0.68rem;
 }
 
 .window-settings {

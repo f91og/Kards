@@ -1,6 +1,6 @@
 import { useEffect, useRef } from 'react';
 
-const MINIMUM_LARGE_MODE_WINDOW_WIDTH = 1280;
+const MINIMUM_LARGE_MODE_WINDOW_WIDTH = 1120;
 
 export function useLargeModeWindowBounds(isLargeMode: boolean) {
   const previousWindowBoundsRef = useRef<KardsWindowBounds | null>(null);
