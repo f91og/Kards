@@ -75,7 +75,9 @@ export default function App() {
 
     if (!isLargeMode) {
       await prepareLargeModeLayout();
-      openLargeMode(selectedCardId);
+      const nextSelectedCardId = useAppStore.getState().selectedCardId;
+      if (!nextSelectedCardId) return;
+      openLargeMode(nextSelectedCardId);
       return;
     }
 
