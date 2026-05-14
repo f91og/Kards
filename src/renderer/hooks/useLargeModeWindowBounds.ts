@@ -26,7 +26,8 @@ export function useLargeModeWindowBounds(isLargeMode: boolean) {
       }
 
       if (previousWindowBoundsRef.current) {
-        await window.kardsWindow.setBounds(previousWindowBoundsRef.current);
+        const { width, height } = previousWindowBoundsRef.current;
+        await window.kardsWindow.setBounds({ width, height });
         previousWindowBoundsRef.current = null;
       }
     };

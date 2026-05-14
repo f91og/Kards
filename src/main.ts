@@ -163,18 +163,20 @@ ipcMain.handle('window:set-bounds', (event, bounds: { width: number; height: num
   const currentBounds = window.getBounds();
   const targetDisplay = screen.getDisplayMatching(currentBounds);
   const { x: workX, y: workY, width: workWidth, height: workHeight } = targetDisplay.workArea;
-  const nextWidth = Math.min(Math.round(bounds.width), workWidth);
+  const explicitX = bounds.x;
+  const explicitY = bounds.y;
+  const hasExplicitX = typeof explicitX === 'number';
+  const hasExplicitY = typeof explicitY === 'number';
+  const requestedX = hasExplicitX ? Math.round(explicitX) : currentBounds.x;
+  const requestedY = hasExplicitY ? Math.round(explicitY) : currentBounds.y;
+  const clampedX = Math.min(Math.max(requestedX, workX), workX + workWidth);
+  const clampedY = Math.min(Math.max(requestedY, workY), workY + workHeight);
+  const nextWidth = Math.max(1, Math.round(bounds.width));
   const nextHeight = Math.min(Math.round(bounds.height), workHeight);
-  const requestedX =
-    typeof bounds.x === 'number'
-      ? Math.round(bounds.x)
-      : currentBounds.x;
-  const requestedY =
-    typeof bounds.y === 'number'
-      ? Math.round(bounds.y)
-      : currentBounds.y;
-  const nextX = Math.min(Math.max(requestedX, workX), workX + workWidth - nextWidth);
-  const nextY = Math.min(Math.max(requestedY, workY), workY + workHeight - nextHeight);
+  const nextX = clampedX;
+  const nextY = hasExplicitY
+    ? Math.min(Math.max(clampedY, workY), workY + workHeight - nextHeight)
+    : clampedY;
 
   window.setBounds({
     x: nextX,

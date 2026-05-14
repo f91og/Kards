@@ -1,6 +1,8 @@
 import { useEffect, useState, type CSSProperties, type RefObject } from 'react';
 import { useLargeModeWindowBounds } from '@/hooks/useLargeModeWindowBounds';
 
+const MINIMUM_LARGE_CARD_PANE_WIDTH = 720;
+
 type UseLargeModeLayoutParams = {
   isLargeMode: boolean;
   appShellRef: RefObject<HTMLElement>;
@@ -37,11 +39,13 @@ export function useLargeModeLayout({
 
       const gap = 16;
       const left = largeModeRailWidth + gap;
-      const width = Math.max(320, shellRect.width - left);
+      const availableWidth = Math.max(0, shellRect.width - largeModeRailWidth - gap);
+      const width = Math.max(MINIMUM_LARGE_CARD_PANE_WIDTH, availableWidth);
 
       setWorkspaceEditorStyle({
         left: `${left}px`,
         width: `${width}px`,
+        minWidth: `${width}px`,
       });
     };
 

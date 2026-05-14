@@ -225,7 +225,10 @@ export default function App() {
   );
 
   return (
-    <main ref={appShellRef} className="app-shell">
+    <main
+      ref={appShellRef}
+      className={isLargeMode && selectedCard ? 'app-shell app-shell--large-mode' : 'app-shell'}
+    >
       {isLargeMode && selectedCard ? (
         <>
           {leftRail}
