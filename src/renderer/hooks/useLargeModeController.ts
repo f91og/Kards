@@ -80,6 +80,12 @@ export function useLargeModeController({
       const nextSelectedCardId = useAppStore.getState().selectedCardId;
       if (!nextSelectedCardId) return;
       openLargeMode(nextSelectedCardId);
+
+      const nextSelectedCard = useAppStore.getState().cards.find((card) => card.id === nextSelectedCardId);
+      if (nextSelectedCard && !nextSelectedCard.isCollapsed) {
+        void updateCardCollapsed(nextSelectedCardId, true);
+      }
+
       return;
     }
 
@@ -111,6 +117,7 @@ export function useLargeModeController({
       card,
       isLargeMode
         ? {
+            forceCollapsed: card.id === selectedCardId,
             isEditing: false,
           }
         : {},

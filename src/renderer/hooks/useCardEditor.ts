@@ -2,6 +2,7 @@ import StarterKit from '@tiptap/starter-kit';
 import TaskItem from '@tiptap/extension-task-item';
 import TaskList from '@tiptap/extension-task-list';
 import { useEditor } from '@tiptap/react';
+import { CardImage } from '@/lib/tiptapCardImage';
 
 type UseCardEditorParams = {
   cardId: string;
@@ -32,6 +33,7 @@ export function useCardEditor({
       TaskItem.configure({
         nested: true,
       }),
+      CardImage,
     ],
     editable: isEditing,
     editorProps: {
