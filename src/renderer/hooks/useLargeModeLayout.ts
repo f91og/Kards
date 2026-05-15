@@ -1,5 +1,9 @@
 import { useEffect, useState, type CSSProperties, type RefObject } from 'react';
-import { useLargeModeWindowBounds, type LargeModeDirection } from '@/hooks/useLargeModeWindowBounds';
+import {
+  resolveLargeModeDirection,
+  useLargeModeWindowBounds,
+  type LargeModeDirection,
+} from '@/hooks/useLargeModeWindowBounds';
 
 const MINIMUM_LARGE_CARD_PANE_WIDTH = 620;
 
@@ -20,13 +24,6 @@ export function useLargeModeLayout({
 
   useLargeModeWindowBounds(isLargeMode, largeModeDirection);
 
-  const captureRailWidth = () => {
-    const nextRailWidth = leftRailRef.current?.getBoundingClientRect().width;
-    if (nextRailWidth) {
-      setLargeModeRailWidth(nextRailWidth);
-    }
-  };
-
   const prepareLargeModeLayout = async () => {
     const nextRailWidth = leftRailRef.current?.getBoundingClientRect().width ?? null;
     let nextDirection: LargeModeDirection = 'right';
@@ -38,9 +35,7 @@ export function useLargeModeLayout({
       ]);
 
       if (currentBounds && workArea) {
-        const windowCenterX = currentBounds.x + currentBounds.width / 2;
-        const workAreaCenterX = workArea.x + workArea.width / 2;
-        nextDirection = windowCenterX > workAreaCenterX ? 'left' : 'right';
+        nextDirection = resolveLargeModeDirection(currentBounds, workArea);
       }
     }
 
@@ -90,6 +85,5 @@ export function useLargeModeLayout({
     largeModeDirection,
     workspaceEditorStyle,
     prepareLargeModeLayout,
-    captureRailWidth,
   };
 }

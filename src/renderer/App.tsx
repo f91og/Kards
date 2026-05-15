@@ -5,11 +5,10 @@ import { SearchBox } from '@/components/SearchBox';
 import { useAppSettings } from '@/hooks/useAppSettings';
 import { useCardKeyboardShortcuts } from '@/hooks/useCardKeyboardShortcuts';
 import { useInfiniteCardScroll } from '@/hooks/useInfiniteCardScroll';
-import { useLargeModeLayout } from '@/hooks/useLargeModeLayout';
+import { useLargeModeController } from '@/hooks/useLargeModeController';
 import { useAppStore } from '@/store/useAppStore';
-import { collectUniqueTags, type Card } from '../shared/models/card';
+import { collectUniqueTags } from '../shared/models/card';
 import { useEffect, useMemo, useRef, useState } from 'react';
-import type { CardItemProps } from '@/components/CardItem';
 
 export default function App() {
   const appShellRef = useRef<HTMLElement | null>(null);
@@ -59,30 +58,40 @@ export default function App() {
     toggleSettingsOpen,
     togglePin,
   } = useAppSettings();
-  const { largeModeRailWidth, largeModeDirection, workspaceEditorStyle, prepareLargeModeLayout } = useLargeModeLayout({
-    isLargeMode,
-    appShellRef,
-    leftRailRef,
-  });
   const normalizedQuery = searchQuery.trim().toLocaleLowerCase();
   const allTags = useMemo(() => collectUniqueTags(cards.map((card) => card.tags)), [cards]);
   const areAllLoadedCardsCollapsed = cards.length > 0 && cards.every((card) => card.isCollapsed);
   const showTagDropdown = isSearchFocused && normalizedQuery === '' && allTags.length > 0;
-  const selectedCard = selectedCardId ? cards.find((card) => card.id === selectedCardId) ?? null : null;
-
-  const toggleLargeMode = async () => {
-    if (!selectedCardId) return;
-
-    if (!isLargeMode) {
-      await prepareLargeModeLayout();
-      const nextSelectedCardId = useAppStore.getState().selectedCardId;
-      if (!nextSelectedCardId) return;
-      openLargeMode(nextSelectedCardId);
-      return;
-    }
-
-    closeLargeMode();
-  };
+  const {
+    buildCardItemProps,
+    buildListCardItemProps,
+    leftRailStyle,
+    selectedCard,
+    toggleLargeMode,
+    workspaceEditorStyle,
+  } = useLargeModeController({
+    cards,
+    titleErrors,
+    selectedCardId,
+    editingCardId,
+    isLargeMode,
+    appShellRef,
+    leftRailRef,
+    setSearchQuery,
+    selectCard,
+    startEditingCard,
+    stopEditingCard,
+    openLargeMode,
+    closeLargeMode,
+    updateCardTitle,
+    validateCardTitle,
+    updateCardTags,
+    updateCardContent,
+    updateCardEditorHeight,
+    updateCardCollapsed,
+    toggleCardContentMasked,
+    removeCard,
+  });
 
   useEffect(() => {
     if (isSearchFocused) {
@@ -122,14 +131,6 @@ export default function App() {
     void hydrateCards();
   }, [hydrateCards, normalizedQuery]);
 
-  useEffect(() => {
-    document.body.dataset.largeMode = isLargeMode && selectedCard ? 'true' : 'false';
-
-    return () => {
-      delete document.body.dataset.largeMode;
-    };
-  }, [isLargeMode, selectedCard]);
-
   useCardKeyboardShortcuts({
     cards,
     selectedCardId,
@@ -141,7 +142,6 @@ export default function App() {
     selectCard,
     startEditingCard,
     stopEditingCard,
-    updateCardCollapsed,
     closeLargeMode,
     toggleLargeMode,
   });
@@ -155,50 +155,8 @@ export default function App() {
     loadMoreCards,
   });
 
-  const buildCardItemProps = (card: Card, overrides: Partial<CardItemProps> = {}): CardItemProps => ({
-    card,
-    isSelected: card.id === selectedCardId,
-    isEditing: card.id === editingCardId,
-    titleError: titleErrors[card.id],
-    onSelect: () => selectCard(card.id),
-    onStartEditing: () => startEditingCard(card.id),
-    onStopEditing: () => stopEditingCard(card.id),
-    onTitleChange: updateCardTitle,
-    onTitleBlur: validateCardTitle,
-    onTagsChange: updateCardTags,
-    onTagClick: setSearchQuery,
-    onContentChange: updateCardContent,
-    onEditorHeightChange: updateCardEditorHeight,
-    onCollapsedChange: updateCardCollapsed,
-    onContentMaskedToggle: toggleCardContentMasked,
-    onRemove: removeCard,
-    ...overrides,
-  });
-
-  const buildListCardItemProps = (card: Card): CardItemProps =>
-    buildCardItemProps(
-      card,
-      isLargeMode
-        ? {
-            isEditing: false,
-            forceCollapsed: true,
-          }
-        : {},
-    );
-
   const leftRail = (
-    <div
-      ref={leftRailRef}
-      className="app-rail"
-      style={
-        isLargeMode && largeModeRailWidth
-          ? {
-              width: `${largeModeRailWidth}px`,
-              marginLeft: largeModeDirection === 'left' ? 'auto' : undefined,
-            }
-          : undefined
-      }
-    >
+    <div ref={leftRailRef} className="app-rail" style={leftRailStyle}>
       <div className="app-topbar">
         <AppTitleBar
           areAllLoadedCardsCollapsed={areAllLoadedCardsCollapsed}
@@ -231,7 +189,12 @@ export default function App() {
         />
       </div>
 
-      <CardList listCards={cards} loadMoreRef={loadMoreRef} buildCardItemProps={buildListCardItemProps} />
+      <CardList
+        listCards={cards}
+        selectedCardId={selectedCardId}
+        loadMoreRef={loadMoreRef}
+        buildCardItemProps={buildListCardItemProps}
+      />
     </div>
   );
 
