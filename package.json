@@ -1,6 +1,6 @@
 {
   "name": "kards",
-  "version": "1.0.7",
+  "version": "1.0.8",
   "productName": "Kards",
   "description": "",
   "main": "dist/main.js",
