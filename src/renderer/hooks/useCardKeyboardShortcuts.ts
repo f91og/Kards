@@ -80,16 +80,10 @@ export function useCardKeyboardShortcuts({
       }
       if (event.key === ' ') {
         event.preventDefault();
-
-        if (isLargeMode) {
-          closeLargeMode();
-          return;
-        }
-
         const selectedCard = selectedCardId ? cards.find((card) => card.id === selectedCardId) ?? null : null;
-        if (!selectedCard) return;
+        if (!selectedCardId && !isLargeMode) return;
 
-        if (selectedCard.isCollapsed) {
+        if (!isLargeMode && selectedCard?.isCollapsed) {
           void updateCardCollapsed(selectedCard.id, false).catch((error) => {
             console.error('Failed to expand selected card', error);
           });

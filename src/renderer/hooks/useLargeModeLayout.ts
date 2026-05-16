@@ -57,7 +57,7 @@ export function useLargeModeLayout({
       const shellRect = appShellRef.current?.getBoundingClientRect();
       if (!shellRect || !largeModeRailWidth) return;
 
-      const gap = 16;
+      const gap = 8;
       const left = largeModeRailWidth + gap;
       const availableWidth = Math.max(0, shellRect.width - largeModeRailWidth - gap);
       const width = Math.max(MINIMUM_LARGE_CARD_PANE_WIDTH, availableWidth);

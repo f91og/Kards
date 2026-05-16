@@ -204,22 +204,18 @@ export default function App() {
       ref={appShellRef}
       className={isLargeMode && selectedCard ? 'app-shell app-shell--large-mode' : 'app-shell'}
     >
-      {isLargeMode && selectedCard ? (
-        <>
-          {leftRail}
+      {leftRail}
 
-          <LargeCardPane
-            style={workspaceEditorStyle}
-            onClose={closeLargeMode}
-            cardItemProps={buildCardItemProps(selectedCard, {
-              isSelected: true,
-              isPoppedOut: true,
-            })}
-          />
-        </>
-      ) : (
-        leftRail
-      )}
+      {isLargeMode && selectedCard ? (
+        <LargeCardPane
+          style={workspaceEditorStyle}
+          onClose={closeLargeMode}
+          cardItemProps={buildCardItemProps(selectedCard, {
+            isSelected: true,
+            isPoppedOut: true,
+          })}
+        />
+      ) : null}
     </main>
   );
 }

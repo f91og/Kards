@@ -80,16 +80,11 @@ export function useLargeModeController({
       const nextSelectedCardId = useAppStore.getState().selectedCardId;
       if (!nextSelectedCardId) return;
       openLargeMode(nextSelectedCardId);
-
-      const nextSelectedCard = useAppStore.getState().cards.find((card) => card.id === nextSelectedCardId);
-      if (nextSelectedCard && !nextSelectedCard.isCollapsed) {
-        void updateCardCollapsed(nextSelectedCardId, true);
-      }
-
       return;
     }
 
     closeLargeMode();
+    void updateCardCollapsed(selectedCardId, true);
   };
 
   const buildCardItemProps: BuildCardItemProps = (card, overrides = {}) => ({
@@ -113,15 +108,7 @@ export function useLargeModeController({
   });
 
   const buildListCardItemProps = (card: Card): CardItemProps =>
-    buildCardItemProps(
-      card,
-      isLargeMode
-        ? {
-            forceCollapsed: card.id === selectedCardId,
-            isEditing: false,
-          }
-        : {},
-    );
+    buildCardItemProps(card, isLargeMode ? { isEditing: false } : {});
 
   const leftRailStyle: CSSProperties | undefined =
     isLargeMode && largeModeRailWidth
