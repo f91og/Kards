@@ -60,7 +60,6 @@ export default function App() {
   } = useAppSettings();
   const normalizedQuery = searchQuery.trim().toLocaleLowerCase();
   const allTags = useMemo(() => collectUniqueTags(cards.map((card) => card.tags)), [cards]);
-  const areAllLoadedCardsCollapsed = cards.length > 0 && cards.every((card) => card.isCollapsed);
   const showTagDropdown = isSearchFocused && normalizedQuery === '' && allTags.length > 0;
   const {
     buildCardItemProps,
@@ -160,7 +159,6 @@ export default function App() {
     <div ref={leftRailRef} className="app-rail" style={leftRailStyle}>
       <div className="app-topbar">
         <AppTitleBar
-          areAllLoadedCardsCollapsed={areAllLoadedCardsCollapsed}
           themeMode={themeMode}
           isPinned={isPinned}
           isSettingsOpen={isSettingsOpen}

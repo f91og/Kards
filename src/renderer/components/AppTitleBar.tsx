@@ -11,7 +11,6 @@ export type SettingsField = {
 };
 
 type AppTitleBarProps = {
-  areAllLoadedCardsCollapsed: boolean;
   themeMode: 'light' | 'dark';
   isPinned: boolean;
   isSettingsOpen: boolean;
@@ -25,7 +24,6 @@ type AppTitleBarProps = {
 };
 
 export function AppTitleBar({
-  areAllLoadedCardsCollapsed,
   themeMode,
   isPinned,
   isSettingsOpen,
@@ -50,9 +48,9 @@ export function AppTitleBar({
 
       <button
         type="button"
-        className={`window-titlebar__collapse${areAllLoadedCardsCollapsed ? ' window-titlebar__collapse--active' : ''}`}
+        className="window-titlebar__collapse"
         onClick={onToggleCollapseAllCards}
-        aria-label={areAllLoadedCardsCollapsed ? 'Expand all cards' : 'Collapse all cards'}
+        aria-label="Toggle all cards"
       >
         <svg viewBox="0 0 16 16" aria-hidden="true" className="window-titlebar__collapse-icon">
           <path
