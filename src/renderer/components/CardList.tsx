@@ -24,20 +24,25 @@ export function CardList({
     if (!selectedElement) return;
 
     requestAnimationFrame(() => {
+      const scrollContainer = listRef.current?.closest<HTMLElement>('.app-rail');
+      if (!scrollContainer) return;
+
       const selectedRect = selectedElement.getBoundingClientRect();
+      const containerRect = scrollContainer.getBoundingClientRect();
       const topViewportPadding = 96;
       const bottomViewportPadding = 96;
+      const topLimit = containerRect.top + topViewportPadding;
+      const bottomLimit = containerRect.bottom - bottomViewportPadding;
 
-      if (selectedRect.top < topViewportPadding) {
-        window.scrollBy({
-          top: selectedRect.top - topViewportPadding,
+      if (selectedRect.top < topLimit) {
+        scrollContainer.scrollBy({
+          top: selectedRect.top - topLimit,
         });
         return;
       }
 
-      const bottomLimit = window.innerHeight - bottomViewportPadding;
       if (selectedRect.bottom > bottomLimit) {
-        window.scrollBy({
+        scrollContainer.scrollBy({
           top: selectedRect.bottom - bottomLimit,
         });
       }

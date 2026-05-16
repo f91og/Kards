@@ -142,6 +142,7 @@ export default function App() {
     selectCard,
     startEditingCard,
     stopEditingCard,
+    updateCardCollapsed,
     closeLargeMode,
     toggleLargeMode,
   });

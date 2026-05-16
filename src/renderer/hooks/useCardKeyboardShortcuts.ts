@@ -12,6 +12,7 @@ type UseCardKeyboardShortcutsParams = {
   selectCard: (cardId: string) => void;
   startEditingCard: (cardId: string) => void;
   stopEditingCard: (cardId: string) => void;
+  updateCardCollapsed: (id: string, isCollapsed: boolean) => Promise<void>;
   closeLargeMode: () => void;
   toggleLargeMode: () => Promise<void>;
 };
@@ -27,6 +28,7 @@ export function useCardKeyboardShortcuts({
   selectCard,
   startEditingCard,
   stopEditingCard,
+  updateCardCollapsed,
   closeLargeMode,
   toggleLargeMode,
 }: UseCardKeyboardShortcutsParams) {
@@ -78,6 +80,22 @@ export function useCardKeyboardShortcuts({
       }
       if (event.key === ' ') {
         event.preventDefault();
+
+        if (isLargeMode) {
+          closeLargeMode();
+          return;
+        }
+
+        const selectedCard = selectedCardId ? cards.find((card) => card.id === selectedCardId) ?? null : null;
+        if (!selectedCard) return;
+
+        if (selectedCard.isCollapsed) {
+          void updateCardCollapsed(selectedCard.id, false).catch((error) => {
+            console.error('Failed to expand selected card', error);
+          });
+          return;
+        }
+
         void toggleLargeMode().catch((error) => {
           console.error('Failed to toggle large mode', error);
         });
@@ -112,6 +130,7 @@ export function useCardKeyboardShortcuts({
     setIsSearchFocused,
     startEditingCard,
     stopEditingCard,
+    updateCardCollapsed,
     toggleLargeMode,
   ]);
 }

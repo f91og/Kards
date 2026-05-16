@@ -19,12 +19,15 @@ export function useInfiniteCardScroll({
 }: UseInfiniteCardScrollParams) {
   useEffect(() => {
     const loadMoreNode = loadMoreRef.current;
+    const scrollRoot = loadMoreNode?.closest('.app-rail');
     if (!loadMoreNode || !hasMoreCards || isHydratingCards || isLoadingMoreCards) return;
 
     const observer = new IntersectionObserver((entries) => {
       const [entry] = entries;
       if (!entry?.isIntersecting) return;
       void loadMoreCards();
+    }, {
+      root: scrollRoot,
     });
 
     observer.observe(loadMoreNode);
