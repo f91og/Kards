@@ -1,4 +1,9 @@
 import { useEffect, type RefObject } from 'react';
+import {
+  resolveCardInteractionAction,
+  type CardInteractionAction,
+  type CardInteractionEvent,
+} from '@/lib/cardInteractionState';
 import type { Card } from '../../shared/models/card';
 
 type UseCardKeyboardShortcutsParams = {
@@ -14,7 +19,7 @@ type UseCardKeyboardShortcutsParams = {
   stopEditingCard: (cardId: string) => void;
   updateCardCollapsed: (id: string, isCollapsed: boolean) => Promise<void>;
   closeLargeModeAndCollapseSelectedCard: () => void;
-  toggleLargeMode: () => Promise<void>;
+  openSelectedCardInLargeMode: () => void;
 };
 
 export function useCardKeyboardShortcuts({
@@ -30,7 +35,7 @@ export function useCardKeyboardShortcuts({
   stopEditingCard,
   updateCardCollapsed,
   closeLargeModeAndCollapseSelectedCard,
-  toggleLargeMode,
+  openSelectedCardInLargeMode,
 }: UseCardKeyboardShortcutsParams) {
   useEffect(() => {
     const selectFirstCard = () => {
@@ -50,6 +55,57 @@ export function useCardKeyboardShortcuts({
       selectCard(cards[nextIndex].id);
     };
 
+    const executeCardInteractionAction = (action: CardInteractionAction, selectedCard: Card | null) => {
+      if (action === 'none') return false;
+
+      if (action === 'stop-editing' && editingCardId) {
+        stopEditingCard(editingCardId);
+        return true;
+      }
+
+      if (action === 'start-editing' && selectedCardId) {
+        startEditingCard(selectedCardId);
+        return true;
+      }
+
+      if (action === 'expand-card' && selectedCard) {
+        void updateCardCollapsed(selectedCard.id, false).catch((error) => {
+          console.error('Failed to expand selected card', error);
+        });
+        return true;
+      }
+
+      if (action === 'open-large-card') {
+        openSelectedCardInLargeMode();
+        return true;
+      }
+
+      if (action === 'close-large-card') {
+        closeLargeModeAndCollapseSelectedCard();
+        return true;
+      }
+
+      return false;
+    };
+
+    const handleCardInteractionKey = (event: KeyboardEvent, interactionEvent: CardInteractionEvent) => {
+      const selectedCard = selectedCardId ? cards.find((card) => card.id === selectedCardId) ?? null : null;
+      const action = resolveCardInteractionAction(interactionEvent, {
+        hasSelectedCard: selectedCard !== null,
+        isCollapsed: selectedCard?.isCollapsed ?? false,
+        isContentMasked: selectedCard?.isContentMasked ?? false,
+        isEditing: Boolean(editingCardId),
+        isLargeMode,
+      });
+
+      const handled = executeCardInteractionAction(action, selectedCard);
+      if (handled) {
+        event.preventDefault();
+      }
+
+      return handled;
+    };
+
     const handleKeyDown = (event: KeyboardEvent) => {
       if (event.key === 'Escape' && isSearchFocused) {
         event.preventDefault();
@@ -59,15 +115,7 @@ export function useCardKeyboardShortcuts({
         return;
       }
 
-      if (event.key === 'Escape' && editingCardId) {
-        event.preventDefault();
-        stopEditingCard(editingCardId);
-        return;
-      }
-
-      if (event.key === 'Escape' && isLargeMode && selectedCardId && !editingCardId) {
-        event.preventDefault();
-        closeLargeModeAndCollapseSelectedCard();
+      if (event.key === 'Escape' && handleCardInteractionKey(event, 'escape')) {
         return;
       }
 
@@ -79,27 +127,11 @@ export function useCardKeyboardShortcuts({
         return;
       }
       if (event.key === ' ') {
-        event.preventDefault();
-        const selectedCard = selectedCardId ? cards.find((card) => card.id === selectedCardId) ?? null : null;
-        if (!selectedCardId && !isLargeMode) return;
-
-        if (!isLargeMode && selectedCard?.isCollapsed) {
-          void updateCardCollapsed(selectedCard.id, false).catch((error) => {
-            console.error('Failed to expand selected card', error);
-          });
-          return;
-        }
-
-        void toggleLargeMode().catch((error) => {
-          console.error('Failed to toggle large mode', error);
-        });
+        handleCardInteractionKey(event, 'space');
         return;
       }
       if (event.key === 'Enter') {
-        if (isLargeMode && selectedCardId) {
-          event.preventDefault();
-          startEditingCard(selectedCardId);
-        }
+        handleCardInteractionKey(event, 'enter');
         return;
       }
       if (!['ArrowDown', 'ArrowUp', 'k', 'i'].includes(event.key)) return;
@@ -118,6 +150,7 @@ export function useCardKeyboardShortcuts({
     editingCardId,
     isLargeMode,
     isSearchFocused,
+    openSelectedCardInLargeMode,
     searchInputRef,
     selectCard,
     selectedCardId,
@@ -125,6 +158,5 @@ export function useCardKeyboardShortcuts({
     startEditingCard,
     stopEditingCard,
     updateCardCollapsed,
-    toggleLargeMode,
   ]);
 }

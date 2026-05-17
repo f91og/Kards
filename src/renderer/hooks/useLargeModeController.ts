@@ -1,4 +1,4 @@
-import { useMemo, type CSSProperties, type RefObject } from 'react';
+import { useEffect, useMemo, type CSSProperties, type RefObject } from 'react';
 import type { CardItemProps } from '@/components/CardItem';
 import { useLargeModeLayout } from '@/hooks/useLargeModeLayout';
 import type { LargeModeDirection } from '@/lib/largeMode';
@@ -70,6 +70,12 @@ export function useLargeModeController({
     [cards, selectedCardId],
   );
 
+  useEffect(() => {
+    if (!isLargeMode || !selectedCard || selectedCard.isCollapsed) return;
+
+    void updateCardCollapsed(selectedCard.id, true);
+  }, [isLargeMode, selectedCard, updateCardCollapsed]);
+
   const closeLargeModeAndCollapseSelectedCard = () => {
     if (selectedCardId) {
       void updateCardCollapsed(selectedCardId, true);
@@ -78,20 +84,14 @@ export function useLargeModeController({
     closeLargeMode();
   };
 
-  const toggleLargeMode = async () => {
+  const openSelectedCardInLargeMode = () => {
     if (!selectedCardId) return;
 
-    if (!isLargeMode) {
-      const nextSelectedCardId = useAppStore.getState().selectedCardId;
-      if (!nextSelectedCardId) return;
-      openLargeMode(nextSelectedCardId);
-      void markCardOpened(nextSelectedCardId);
-      void updateCardCollapsed(nextSelectedCardId, true);
-      return;
-    }
-
-    closeLargeModeAndCollapseSelectedCard();
-    return;
+    const nextSelectedCardId = useAppStore.getState().selectedCardId;
+    if (!nextSelectedCardId) return;
+    openLargeMode(nextSelectedCardId);
+    void markCardOpened(nextSelectedCardId);
+    void updateCardCollapsed(nextSelectedCardId, true);
   };
 
   const buildCardItemProps: BuildCardItemProps = (card, overrides = {}) => ({
@@ -140,7 +140,7 @@ export function useLargeModeController({
     leftRailStyle,
     selectedCard,
     closeLargeModeAndCollapseSelectedCard,
-    toggleLargeMode,
+    openSelectedCardInLargeMode,
     workspaceEditorStyle,
   };
 }

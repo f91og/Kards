@@ -72,8 +72,8 @@ export default function App() {
     buildListCardItemProps,
     closeLargeModeAndCollapseSelectedCard,
     leftRailStyle,
+    openSelectedCardInLargeMode,
     selectedCard,
-    toggleLargeMode,
     workspaceEditorStyle,
   } = useLargeModeController({
     cards,
@@ -152,7 +152,7 @@ export default function App() {
     stopEditingCard,
     updateCardCollapsed,
     closeLargeModeAndCollapseSelectedCard,
-    toggleLargeMode,
+    openSelectedCardInLargeMode,
   });
 
   useInfiniteCardScroll({
