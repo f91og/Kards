@@ -13,7 +13,7 @@ type UseCardKeyboardShortcutsParams = {
   startEditingCard: (cardId: string) => void;
   stopEditingCard: (cardId: string) => void;
   updateCardCollapsed: (id: string, isCollapsed: boolean) => Promise<void>;
-  closeLargeMode: () => void;
+  closeLargeModeAndCollapseSelectedCard: () => void;
   toggleLargeMode: () => Promise<void>;
 };
 
@@ -29,7 +29,7 @@ export function useCardKeyboardShortcuts({
   startEditingCard,
   stopEditingCard,
   updateCardCollapsed,
-  closeLargeMode,
+  closeLargeModeAndCollapseSelectedCard,
   toggleLargeMode,
 }: UseCardKeyboardShortcutsParams) {
   useEffect(() => {
@@ -67,7 +67,7 @@ export function useCardKeyboardShortcuts({
 
       if (event.key === 'Escape' && isLargeMode && selectedCardId && !editingCardId) {
         event.preventDefault();
-        closeLargeMode();
+        closeLargeModeAndCollapseSelectedCard();
         return;
       }
 
@@ -114,7 +114,7 @@ export function useCardKeyboardShortcuts({
     };
   }, [
     cards,
-    closeLargeMode,
+    closeLargeModeAndCollapseSelectedCard,
     editingCardId,
     isLargeMode,
     isSearchFocused,

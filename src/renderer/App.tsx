@@ -1,5 +1,6 @@
 import { AppTitleBar } from '@/components/AppTitleBar';
 import { CardList } from '@/components/CardList';
+import { LargeModeDirectionToggle } from '@/components/LargeModeDirectionToggle';
 import { LargeCardPane } from '@/components/LargeCardPane';
 import { SearchBox } from '@/components/SearchBox';
 import { useAppSettings } from '@/hooks/useAppSettings';
@@ -22,6 +23,7 @@ export default function App() {
     titleErrors,
     searchQuery,
     sortMode,
+    largeModeDirection,
     hasMoreCards,
     isHydratingCards,
     isLoadingMoreCards,
@@ -30,6 +32,7 @@ export default function App() {
     isLargeMode,
     setSearchQuery,
     setSortMode,
+    setLargeModeDirection,
     clearCardFocus,
     selectCard,
     startEditingCard,
@@ -67,6 +70,7 @@ export default function App() {
   const {
     buildCardItemProps,
     buildListCardItemProps,
+    closeLargeModeAndCollapseSelectedCard,
     leftRailStyle,
     selectedCard,
     toggleLargeMode,
@@ -77,6 +81,7 @@ export default function App() {
     selectedCardId,
     editingCardId,
     isLargeMode,
+    largeModeDirection,
     appShellRef,
     leftRailRef,
     setSearchQuery,
@@ -146,7 +151,7 @@ export default function App() {
     startEditingCard,
     stopEditingCard,
     updateCardCollapsed,
-    closeLargeMode,
+    closeLargeModeAndCollapseSelectedCard,
     toggleLargeMode,
   });
 
@@ -210,15 +215,20 @@ export default function App() {
       <LargeCardPane
         visible={Boolean(isLargeMode && selectedCard)}
         style={workspaceEditorStyle}
-        onClose={closeLargeMode}
+        onClose={closeLargeModeAndCollapseSelectedCard}
         cardItemProps={
           selectedCard
             ? buildCardItemProps(selectedCard, {
                 isSelected: true,
                 isPoppedOut: true,
               })
-            : null
+          : null
         }
+      />
+
+      <LargeModeDirectionToggle
+        direction={largeModeDirection}
+        onDirectionChange={setLargeModeDirection}
       />
     </main>
   );

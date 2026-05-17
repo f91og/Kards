@@ -1,17 +1,7 @@
 import { useEffect, useRef } from 'react';
+import type { LargeModeDirection } from '@/lib/largeMode';
 
 const MINIMUM_LARGE_MODE_WINDOW_WIDTH = 1120;
-
-export type LargeModeDirection = 'left' | 'right';
-
-export function resolveLargeModeDirection(
-  currentBounds: KardsWindowBounds,
-  workArea: KardsWindowBounds,
-): LargeModeDirection {
-  const windowCenterX = currentBounds.x + currentBounds.width / 2;
-  const workAreaCenterX = workArea.x + workArea.width / 2;
-  return windowCenterX > workAreaCenterX ? 'left' : 'right';
-}
 
 export function useLargeModeWindowBounds(
   isLargeMode: boolean,

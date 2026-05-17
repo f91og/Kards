@@ -1,5 +1,6 @@
 import { create } from 'zustand';
 import { buildCardExcerpt, type Card } from '../../shared/models/card';
+import type { LargeModeDirection } from '@/lib/largeMode';
 import { deleteCard, createCard, getCardsPageSize, listCards, updateCard as persistUpdatedCard } from './cardsRepository';
 import { findCard, matchesSearch, mergeCard, normalizeKeyword, sortCards, type CardSortMode, validateCardTitle as getCardTitleError } from './cardStoreUtils';
 
@@ -14,6 +15,7 @@ type AppState = {
   selectedCardId: string | null;
   editingCardId: string | null;
   isLargeMode: boolean;
+  largeModeDirection: LargeModeDirection;
   hydrateCards: () => Promise<void>;
   loadMoreCards: () => Promise<void>;
   addCard: () => Promise<void>;
@@ -29,6 +31,7 @@ type AppState = {
   removeCard: (id: string) => Promise<void>;
   setSearchQuery: (searchQuery: string) => void;
   setSortMode: (sortMode: CardSortMode) => void;
+  setLargeModeDirection: (largeModeDirection: LargeModeDirection) => void;
   clearCardFocus: () => void;
   selectCard: (cardId: string) => void;
   startEditingCard: (cardId: string) => void;
@@ -170,6 +173,7 @@ export const useAppStore = create<AppState>((set, get) => ({
   selectedCardId: null,
   editingCardId: null,
   isLargeMode: false,
+  largeModeDirection: 'right',
   hydrateCards: async () => {
     await refreshCards(set, get, 'reset');
   },
@@ -321,6 +325,7 @@ export const useAppStore = create<AppState>((set, get) => ({
   },
   setSearchQuery: (searchQuery) => set({ searchQuery }),
   setSortMode: (sortMode) => set({ sortMode }),
+  setLargeModeDirection: (largeModeDirection) => set({ largeModeDirection }),
   clearCardFocus: () =>
     set({
       selectedCardId: null,

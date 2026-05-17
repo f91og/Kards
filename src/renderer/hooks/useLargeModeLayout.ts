@@ -1,26 +1,24 @@
 import { useEffect, useState, type CSSProperties, type RefObject } from 'react';
-import {
-  resolveLargeModeDirection,
-  useLargeModeWindowBounds,
-  type LargeModeDirection,
-} from '@/hooks/useLargeModeWindowBounds';
+import { useLargeModeWindowBounds } from '@/hooks/useLargeModeWindowBounds';
+import type { LargeModeDirection } from '@/lib/largeMode';
 
 const MINIMUM_LARGE_CARD_PANE_WIDTH = 620;
 const LARGE_MODE_GAP = 8;
 
 type UseLargeModeLayoutParams = {
   isLargeMode: boolean;
+  largeModeDirection: LargeModeDirection;
   appShellRef: RefObject<HTMLElement>;
   leftRailRef: RefObject<HTMLDivElement>;
 };
 
 export function useLargeModeLayout({
   isLargeMode,
+  largeModeDirection,
   appShellRef,
   leftRailRef,
 }: UseLargeModeLayoutParams) {
   const [largeModeRailWidth, setLargeModeRailWidth] = useState<number | null>(null);
-  const [largeModeDirection, setLargeModeDirection] = useState<LargeModeDirection>('right');
   const [workspaceEditorStyle, setWorkspaceEditorStyle] = useState<CSSProperties | undefined>(undefined);
 
   useLargeModeWindowBounds(isLargeMode, largeModeDirection);
@@ -48,30 +46,6 @@ export function useLargeModeLayout({
       resizeObserver.disconnect();
     };
   }, [leftRailRef]);
-
-  useEffect(() => {
-    if (!window.kardsWindow) return;
-
-    let isCancelled = false;
-
-    const syncDirection = async () => {
-      const [currentBounds, workArea] = await Promise.all([
-        window.kardsWindow.getBounds(),
-        window.kardsWindow.getWorkArea(),
-      ]);
-
-      if (isCancelled || !currentBounds || !workArea) return;
-      setLargeModeDirection(resolveLargeModeDirection(currentBounds, workArea));
-    };
-
-    void syncDirection();
-    window.addEventListener('resize', syncDirection);
-
-    return () => {
-      isCancelled = true;
-      window.removeEventListener('resize', syncDirection);
-    };
-  }, []);
 
   useEffect(() => {
     const updateWorkspaceEditorStyle = () => {

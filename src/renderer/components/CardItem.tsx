@@ -67,7 +67,7 @@ export function CardItem({
   const toggleCollapsed = () => {
     closeMenu();
     stopResize();
-    onCollapsedChange(card.id, !card.isCollapsed);
+    onCollapsedChange(card.id, !isDisplayedCollapsed);
   };
 
   const copyCardContent = async () => {

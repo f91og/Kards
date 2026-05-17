@@ -183,6 +183,44 @@ body[data-theme='dark'] {
   -webkit-app-region: no-drag;
 }
 
+.large-mode-direction-toggle {
+  position: absolute;
+  inset: auto 0.35rem 0.18rem;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  pointer-events: none;
+  z-index: 18;
+}
+
+.large-mode-direction-toggle__button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.42rem;
+  height: 1.42rem;
+  border: 1px solid var(--border);
+  border-radius: 9999px;
+  background: var(--surface);
+  color: var(--text-muted);
+  cursor: pointer;
+  pointer-events: auto;
+  -webkit-app-region: no-drag;
+  box-shadow: 0 1px 4px var(--shadow);
+}
+
+.large-mode-direction-toggle__button:hover,
+.large-mode-direction-toggle__button--active {
+  border-color: var(--border-strong);
+  background: var(--surface-soft);
+  color: var(--text);
+}
+
+.large-mode-direction-toggle__icon {
+  width: 0.78rem;
+  height: 0.78rem;
+}
+
 .window-settings__panel {
   position: absolute;
   top: calc(100% + 0.35rem);
@@ -370,7 +408,7 @@ body[data-theme='dark'] {
   display: flex;
   flex-direction: column;
   gap: 0.35rem;
-  padding-bottom: 0.35rem;
+  padding-bottom: 2.1rem;
 }
 
 .card-list__sentinel {
