@@ -2,24 +2,32 @@ import { CardItem, type CardItemProps } from '@/components/CardItem';
 import type { CSSProperties } from 'react';
 
 type LargeCardPaneProps = {
+  visible: boolean;
   style?: CSSProperties;
-  cardItemProps: CardItemProps;
+  cardItemProps: CardItemProps | null;
   onClose: () => void;
 };
 
 export function LargeCardPane({
+  visible,
   style,
   cardItemProps,
   onClose,
 }: LargeCardPaneProps) {
   return (
-    <section className="app-workspace__editor" style={style} onMouseDown={cardItemProps.onSelect}>
+    <section
+      className={`app-workspace__editor${visible ? '' : ' app-workspace__editor--hidden'}`}
+      style={style}
+      onMouseDown={() => cardItemProps?.onSelect()}
+      aria-hidden={visible ? undefined : 'true'}
+    >
       <div className="app-workspace__editor-frame">
         <button
           type="button"
           className="card-popout__close"
           onClick={onClose}
           aria-label="Close large editor"
+          tabIndex={visible ? 0 : -1}
         >
           <svg viewBox="0 0 16 16" aria-hidden="true" className="card-popout__close-icon">
             <path
@@ -29,9 +37,7 @@ export function LargeCardPane({
           </svg>
         </button>
 
-        <CardItem
-          {...cardItemProps}
-        />
+        {cardItemProps ? <CardItem {...cardItemProps} /> : null}
       </div>
     </section>
   );

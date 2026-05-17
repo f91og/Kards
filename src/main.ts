@@ -22,6 +22,12 @@ const DEFAULT_EDITOR_HEIGHT = 48;
 let mainWindow: BrowserWindow | null;
 let windowBoundsSaveTimeout: NodeJS.Timeout | null = null;
 
+function emitWindowBoundsChanged(window: BrowserWindow): void {
+  if (window.isDestroyed()) return;
+  const { x, y, width, height } = window.getBounds();
+  window.webContents.send('window:bounds-changed', { x, y, width, height });
+}
+
 function createDefaultCard(position: number = 1): Card | null {
   const id = insertCard({
     title: 'Untitled',
@@ -114,7 +120,13 @@ function createWindow(): void {
 
   mainWindow.on('resize', () => {
     if (!mainWindow || mainWindow.isMinimized() || mainWindow.isMaximized()) return;
+    emitWindowBoundsChanged(mainWindow);
     scheduleWindowBoundsSave(mainWindow);
+  });
+
+  mainWindow.on('move', () => {
+    if (!mainWindow || mainWindow.isMinimized() || mainWindow.isMaximized()) return;
+    emitWindowBoundsChanged(mainWindow);
   });
 
   mainWindow.on('close', () => {

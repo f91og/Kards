@@ -18,6 +18,7 @@ declare global {
       getWorkArea: () => Promise<KardsWindowBounds | null>;
       setOpacity: (opacity: number) => Promise<number>;
       setBounds: (bounds: { width: number; height: number; x?: number; y?: number }) => Promise<KardsWindowBounds | null>;
+      onBoundsChanged: (listener: (bounds: KardsWindowBounds) => void) => () => void;
     };
     kardsCards: {
       list: (options?: { limit?: number; offset?: number; keyword?: string | null }) => Promise<Card[]>;

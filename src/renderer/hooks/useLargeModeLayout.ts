@@ -6,6 +6,7 @@ import {
 } from '@/hooks/useLargeModeWindowBounds';
 
 const MINIMUM_LARGE_CARD_PANE_WIDTH = 620;
+const LARGE_MODE_GAP = 8;
 
 type UseLargeModeLayoutParams = {
   isLargeMode: boolean;
@@ -24,52 +25,84 @@ export function useLargeModeLayout({
 
   useLargeModeWindowBounds(isLargeMode, largeModeDirection);
 
-  const prepareLargeModeLayout = async () => {
-    const nextRailWidth = leftRailRef.current?.getBoundingClientRect().width ?? null;
-    let nextDirection: LargeModeDirection = 'right';
+  useEffect(() => {
+    const syncRailWidth = () => {
+      const nextRailWidth = leftRailRef.current?.getBoundingClientRect().width ?? null;
+      setLargeModeRailWidth((currentRailWidth) => {
+        if (currentRailWidth === nextRailWidth) return currentRailWidth;
+        return nextRailWidth;
+      });
+    };
 
-    if (window.kardsWindow) {
+    syncRailWidth();
+
+    const leftRail = leftRailRef.current;
+    if (!leftRail || typeof ResizeObserver === 'undefined') return;
+
+    const resizeObserver = new ResizeObserver(() => {
+      syncRailWidth();
+    });
+
+    resizeObserver.observe(leftRail);
+    return () => {
+      resizeObserver.disconnect();
+    };
+  }, [leftRailRef]);
+
+  useEffect(() => {
+    if (!window.kardsWindow) return;
+
+    let isCancelled = false;
+
+    const syncDirection = async () => {
       const [currentBounds, workArea] = await Promise.all([
         window.kardsWindow.getBounds(),
         window.kardsWindow.getWorkArea(),
       ]);
 
-      if (currentBounds && workArea) {
-        nextDirection = resolveLargeModeDirection(currentBounds, workArea);
-      }
-    }
+      if (isCancelled || !currentBounds || !workArea) return;
+      setLargeModeDirection(resolveLargeModeDirection(currentBounds, workArea));
+    };
 
-    if (nextRailWidth) {
-      setLargeModeRailWidth(nextRailWidth);
-    }
-    setLargeModeDirection(nextDirection);
-  };
+    void syncDirection();
+    window.addEventListener('resize', syncDirection);
+
+    return () => {
+      isCancelled = true;
+      window.removeEventListener('resize', syncDirection);
+    };
+  }, []);
 
   useEffect(() => {
-    if (!isLargeMode) {
-      setWorkspaceEditorStyle(undefined);
-      setLargeModeRailWidth(null);
-      setLargeModeDirection('right');
-      return;
-    }
-
     const updateWorkspaceEditorStyle = () => {
       const shellRect = appShellRef.current?.getBoundingClientRect();
       if (!shellRect || !largeModeRailWidth) return;
 
-      const gap = 8;
-      const left = largeModeRailWidth + gap;
-      const availableWidth = Math.max(0, shellRect.width - largeModeRailWidth - gap);
+      const anchorOffset = largeModeRailWidth + LARGE_MODE_GAP;
+      const availableWidth = Math.max(0, shellRect.width - largeModeRailWidth - LARGE_MODE_GAP);
       const width = Math.max(MINIMUM_LARGE_CARD_PANE_WIDTH, availableWidth);
       const positionStyle =
         largeModeDirection === 'left'
-          ? { right: `${left}px` }
-          : { left: `${left}px` };
+          ? { right: `${anchorOffset}px` }
+          : { left: `${anchorOffset}px` };
 
-      setWorkspaceEditorStyle({
-        ...positionStyle,
-        width: `${width}px`,
-        minWidth: `${width}px`,
+      setWorkspaceEditorStyle((currentStyle) => {
+        const nextStyle: CSSProperties = {
+          ...positionStyle,
+          width: `${width}px`,
+          minWidth: `${width}px`,
+        };
+
+        if (
+          currentStyle?.left === nextStyle.left &&
+          currentStyle?.right === nextStyle.right &&
+          currentStyle?.width === nextStyle.width &&
+          currentStyle?.minWidth === nextStyle.minWidth
+        ) {
+          return currentStyle;
+        }
+
+        return nextStyle;
       });
     };
 
@@ -78,12 +111,11 @@ export function useLargeModeLayout({
     return () => {
       window.removeEventListener('resize', updateWorkspaceEditorStyle);
     };
-  }, [appShellRef, isLargeMode, largeModeDirection, largeModeRailWidth]);
+  }, [appShellRef, largeModeDirection, largeModeRailWidth]);
 
   return {
     largeModeRailWidth,
     largeModeDirection,
     workspaceEditorStyle,
-    prepareLargeModeLayout,
   };
 }

@@ -1,4 +1,4 @@
-import { useEffect, useMemo, type CSSProperties, type RefObject } from 'react';
+import { useMemo, type CSSProperties, type RefObject } from 'react';
 import type { CardItemProps } from '@/components/CardItem';
 import { useLargeModeLayout } from '@/hooks/useLargeModeLayout';
 import { useAppStore } from '@/store/useAppStore';
@@ -53,7 +53,7 @@ export function useLargeModeController({
   toggleCardContentMasked,
   removeCard,
 }: UseLargeModeControllerParams) {
-  const { largeModeRailWidth, largeModeDirection, workspaceEditorStyle, prepareLargeModeLayout } = useLargeModeLayout({
+  const { largeModeRailWidth, largeModeDirection, workspaceEditorStyle } = useLargeModeLayout({
     isLargeMode,
     appShellRef,
     leftRailRef,
@@ -64,27 +64,19 @@ export function useLargeModeController({
     [cards, selectedCardId],
   );
 
-  useEffect(() => {
-    document.body.dataset.largeMode = isLargeMode && selectedCard ? 'true' : 'false';
-
-    return () => {
-      delete document.body.dataset.largeMode;
-    };
-  }, [isLargeMode, selectedCard]);
-
   const toggleLargeMode = async () => {
     if (!selectedCardId) return;
 
     if (!isLargeMode) {
-      await prepareLargeModeLayout();
       const nextSelectedCardId = useAppStore.getState().selectedCardId;
       if (!nextSelectedCardId) return;
       openLargeMode(nextSelectedCardId);
-      return;
+      return Promise.resolve();
     }
 
     closeLargeMode();
     void updateCardCollapsed(selectedCardId, true);
+    return Promise.resolve();
   };
 
   const buildCardItemProps: BuildCardItemProps = (card, overrides = {}) => ({
