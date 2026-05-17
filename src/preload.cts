@@ -23,7 +23,7 @@ contextBridge.exposeInMainWorld('kardsWindow', {
 });
 
 contextBridge.exposeInMainWorld('kardsCards', {
-  list: (options?: { limit?: number; offset?: number; keyword?: string | null }): Promise<Card[]> =>
+  list: (options?: { limit?: number; offset?: number; keyword?: string | null; sortMode?: 'created' | 'recent-opened' }): Promise<Card[]> =>
     ipcRenderer.invoke('cards:list', options) as Promise<Card[]>,
   create: (): Promise<Card | null> => ipcRenderer.invoke('cards:create') as Promise<Card | null>,
   update: (card: CardUpdate): Promise<Card | null> => ipcRenderer.invoke('cards:update', card) as Promise<Card | null>,

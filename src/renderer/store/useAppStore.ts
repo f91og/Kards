@@ -1,12 +1,13 @@
 import { create } from 'zustand';
 import { buildCardExcerpt, type Card } from '../../shared/models/card';
 import { deleteCard, createCard, getCardsPageSize, listCards, updateCard as persistUpdatedCard } from './cardsRepository';
-import { findCard, matchesSearch, mergeCard, normalizeKeyword, sortCards, validateCardTitle as getCardTitleError } from './cardStoreUtils';
+import { findCard, matchesSearch, mergeCard, normalizeKeyword, sortCards, type CardSortMode, validateCardTitle as getCardTitleError } from './cardStoreUtils';
 
 type AppState = {
   cards: Card[];
   titleErrors: Record<string, string | undefined>;
   searchQuery: string;
+  sortMode: CardSortMode;
   hasMoreCards: boolean;
   isHydratingCards: boolean;
   isLoadingMoreCards: boolean;
@@ -23,9 +24,11 @@ type AppState = {
   updateCardContent: (id: string, content: string) => Promise<void>;
   updateCardEditorHeight: (id: string, editorHeight: number) => Promise<void>;
   updateCardCollapsed: (id: string, isCollapsed: boolean) => Promise<void>;
+  markCardOpened: (id: string) => Promise<void>;
   toggleCardContentMasked: (id: string) => Promise<void>;
   removeCard: (id: string) => Promise<void>;
   setSearchQuery: (searchQuery: string) => void;
+  setSortMode: (sortMode: CardSortMode) => void;
   clearCardFocus: () => void;
   selectCard: (cardId: string) => void;
   startEditingCard: (cardId: string) => void;
@@ -54,6 +57,7 @@ async function persistCard(card: Card): Promise<Card | null> {
     content: card.content,
     tags: card.tags,
     updatedAt: card.updatedAt,
+    recentOpenedAt: card.recentOpenedAt,
     isArchived: card.isArchived,
     position: card.position,
     editorHeight: card.editorHeight,
@@ -72,6 +76,7 @@ async function refreshCards(
   mode: 'reset' | 'append',
 ): Promise<void> {
   const keyword = normalizeKeyword(get().searchQuery);
+  const sortMode = get().sortMode;
 
   if (mode === 'reset') {
     paginationState.activeKeyword = keyword;
@@ -90,7 +95,7 @@ async function refreshCards(
   }
 
   const currentOffset = mode === 'reset' ? 0 : paginationState.loadedCount;
-  const nextCards = await listCards({ offset: currentOffset, keyword });
+  const nextCards = await listCards({ offset: currentOffset, keyword, sortMode });
 
   if (paginationState.activeKeyword !== keyword) {
     set(() => ({
@@ -101,7 +106,7 @@ async function refreshCards(
   }
 
   set((state) => {
-    const cards = mode === 'reset' ? nextCards : sortCards([...state.cards, ...nextCards]);
+    const cards = mode === 'reset' ? nextCards : sortCards([...state.cards, ...nextCards], sortMode);
     syncLoadedCount(cards);
 
     return {
@@ -130,7 +135,7 @@ async function updatePersistedCard(
   latestPersistRequestByCardId[id] = requestId;
 
   set((state) => {
-    const nextCards = mergeCard(state.cards, optimisticCard).filter((card) => matchesSearch(card, state.searchQuery));
+    const nextCards = mergeCard(state.cards, optimisticCard, state.sortMode).filter((card) => matchesSearch(card, state.searchQuery));
     syncLoadedCount(nextCards);
 
     return {
@@ -144,7 +149,7 @@ async function updatePersistedCard(
 
   set((state) => {
     const nextCards = matchesSearch(persistedCard, state.searchQuery)
-      ? mergeCard(state.cards, persistedCard)
+      ? mergeCard(state.cards, persistedCard, state.sortMode)
       : state.cards.filter((card) => card.id !== persistedCard.id);
     syncLoadedCount(nextCards);
 
@@ -158,6 +163,7 @@ export const useAppStore = create<AppState>((set, get) => ({
   cards: [],
   titleErrors: {},
   searchQuery: '',
+  sortMode: 'created',
   hasMoreCards: true,
   isHydratingCards: false,
   isLoadingMoreCards: false,
@@ -176,7 +182,7 @@ export const useAppStore = create<AppState>((set, get) => ({
 
     set((state) => {
       const shouldClearSearch = !matchesSearch(card, state.searchQuery);
-      const nextCards = sortCards([card, ...state.cards]);
+      const nextCards = sortCards([card, ...state.cards], state.sortMode);
       syncLoadedCount(nextCards);
 
       return {
@@ -274,6 +280,12 @@ export const useAppStore = create<AppState>((set, get) => ({
       isCollapsed,
     }));
   },
+  markCardOpened: async (id) => {
+    await updatePersistedCard(set, get, id, (card) => ({
+      ...card,
+      recentOpenedAt: new Date().toISOString(),
+    }));
+  },
   toggleCardContentMasked: async (id) => {
     await updatePersistedCard(set, get, id, (card) => ({
       ...card,
@@ -286,7 +298,7 @@ export const useAppStore = create<AppState>((set, get) => ({
     set((state) => {
       const filteredCards = state.cards.filter((card) => card.id !== id);
       const nextCards =
-        fallbackCard && matchesSearch(fallbackCard, state.searchQuery) ? sortCards([fallbackCard, ...filteredCards]) : filteredCards;
+        fallbackCard && matchesSearch(fallbackCard, state.searchQuery) ? sortCards([fallbackCard, ...filteredCards], state.sortMode) : filteredCards;
       syncLoadedCount(nextCards);
 
       return {
@@ -308,6 +320,7 @@ export const useAppStore = create<AppState>((set, get) => ({
     await refreshCards(set, get, 'append');
   },
   setSearchQuery: (searchQuery) => set({ searchQuery }),
+  setSortMode: (sortMode) => set({ sortMode }),
   clearCardFocus: () =>
     set({
       selectedCardId: null,

@@ -6,6 +6,7 @@ export type ListCardsOptions = {
   limit?: number;
   offset?: number;
   keyword?: string | null;
+  sortMode?: 'created' | 'recent-opened';
 };
 
 export function getCardsPageSize(): number {
@@ -18,6 +19,7 @@ export async function listCards(options?: ListCardsOptions): Promise<Card[]> {
     limit: options?.limit ?? CARDS_PAGE_SIZE,
     offset: options?.offset ?? 0,
     keyword: options?.keyword ?? '',
+    sortMode: options?.sortMode ?? 'created',
   });
 }
 

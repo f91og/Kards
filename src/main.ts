@@ -217,13 +217,13 @@ ipcMain.handle('window:set-bounds', (event, bounds: { width: number; height: num
   return window.getBounds();
 });
 
-ipcMain.handle('cards:list', (_event, options?: { limit?: number; offset?: number; keyword?: string | null }) => {
+ipcMain.handle('cards:list', (_event, options?: { limit?: number; offset?: number; keyword?: string | null; sortMode?: 'created' | 'recent-opened' }) => {
   const cards = getAllCards();
   if (cards.length === 0) {
     getOrCreateCards();
   }
 
-  return getCardsPage(options?.limit ?? 20, options?.offset ?? 0, options?.keyword);
+  return getCardsPage(options?.limit ?? 20, options?.offset ?? 0, options?.keyword, options?.sortMode ?? 'created');
 });
 
 ipcMain.handle('cards:create', () => {

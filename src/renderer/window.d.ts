@@ -21,7 +21,7 @@ declare global {
       onBoundsChanged: (listener: (bounds: KardsWindowBounds) => void) => () => void;
     };
     kardsCards: {
-      list: (options?: { limit?: number; offset?: number; keyword?: string | null }) => Promise<Card[]>;
+      list: (options?: { limit?: number; offset?: number; keyword?: string | null; sortMode?: 'created' | 'recent-opened' }) => Promise<Card[]>;
       create: () => Promise<Card | null>;
       update: (card: CardUpdate) => Promise<Card | null>;
       delete: (id: string) => Promise<Card | null>;

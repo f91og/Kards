@@ -18,6 +18,7 @@ type UseLargeModeControllerParams = {
   stopEditingCard: (cardId: string) => void;
   openLargeMode: (cardId: string) => void;
   closeLargeMode: () => void;
+  markCardOpened: (id: string) => Promise<void>;
   updateCardTitle: (id: string, title: string) => Promise<void>;
   validateCardTitle: (id: string) => Promise<boolean>;
   updateCardTags: (id: string, tags: string[]) => Promise<void>;
@@ -44,6 +45,7 @@ export function useLargeModeController({
   stopEditingCard,
   openLargeMode,
   closeLargeMode,
+  markCardOpened,
   updateCardTitle,
   validateCardTitle,
   updateCardTags,
@@ -71,6 +73,7 @@ export function useLargeModeController({
       const nextSelectedCardId = useAppStore.getState().selectedCardId;
       if (!nextSelectedCardId) return;
       openLargeMode(nextSelectedCardId);
+      void markCardOpened(nextSelectedCardId);
       return Promise.resolve();
     }
 

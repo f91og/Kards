@@ -43,6 +43,7 @@ function initSchema(database: DatabaseInstance): void {
     updated_at TEXT,
     is_hidden INTEGER DEFAULT 0,
     sort_order INTEGER DEFAULT 0,
+    recent_opened_at TEXT,
     editor_height INTEGER DEFAULT 48,
     is_collapsed INTEGER DEFAULT 0,
     is_content_masked INTEGER DEFAULT 0
@@ -55,6 +56,7 @@ function initSchema(database: DatabaseInstance): void {
   database.prepare(createStmt).run();
   database.prepare(settingsStmt).run();
   ensureColumn(database, 'cards', 'editor_height', `INTEGER DEFAULT ${DEFAULT_EDITOR_HEIGHT}`);
+  ensureColumn(database, 'cards', 'recent_opened_at', 'TEXT');
   ensureColumn(database, 'cards', 'is_collapsed', 'INTEGER DEFAULT 0');
   ensureColumn(database, 'cards', 'is_content_masked', 'INTEGER DEFAULT 0');
 }
@@ -83,19 +85,23 @@ export function getCardsPage(
   limit: number = 20,
   offset: number = 0,
   keyword?: string | null,
+  sortMode: 'created' | 'recent-opened' = 'created',
 ): Card[] {
   const d = openDB();
+  const orderBy = sortMode === 'recent-opened'
+    ? 'ORDER BY CASE WHEN recent_opened_at IS NULL THEN 1 ELSE 0 END, recent_opened_at DESC, created_at DESC'
+    : 'ORDER BY created_at DESC';
   if (keyword && String(keyword).trim() !== '') {
     const like = `%${String(keyword).trim()}%`;
     const stmt = d.prepare(
-      'SELECT * FROM cards WHERE title LIKE ? OR content LIKE ? OR tags LIKE ? ORDER BY sort_order DESC, created_at DESC LIMIT ? OFFSET ?',
+      `SELECT * FROM cards WHERE title LIKE ? OR content LIKE ? OR tags LIKE ? ${orderBy} LIMIT ? OFFSET ?`,
     );
     const rows = stmt.all(like, like, like, limit, offset) as CardRow[];
     return cardRowsToModels(rows);
   }
 
   const stmt = d.prepare(
-    'SELECT * FROM cards ORDER BY sort_order DESC, created_at DESC LIMIT ? OFFSET ?',
+    `SELECT * FROM cards ${orderBy} LIMIT ? OFFSET ?`,
   );
   const rows = stmt.all(limit, offset) as CardRow[];
   return cardRowsToModels(rows);
@@ -113,7 +119,7 @@ export function insertCard(card: NewCard): string {
   const createdAt = card.createdAt ?? new Date().toISOString();
   const updatedAt = card.updatedAt ?? createdAt;
   const stmt = d.prepare(
-    'INSERT INTO cards (id,title,content,tags,created_at,updated_at,is_hidden,sort_order,editor_height,is_collapsed,is_content_masked) VALUES (?,?,?,?,?,?,?,?,?,?,?)',
+    'INSERT INTO cards (id,title,content,tags,created_at,updated_at,is_hidden,sort_order,recent_opened_at,editor_height,is_collapsed,is_content_masked) VALUES (?,?,?,?,?,?,?,?,?,?,?,?)',
   );
   try {
     stmt.run(
@@ -125,6 +131,7 @@ export function insertCard(card: NewCard): string {
       updatedAt,
       card.isArchived ? 1 : 0,
       card.position ?? 0,
+      card.recentOpenedAt ?? null,
       card.editorHeight ?? DEFAULT_EDITOR_HEIGHT,
       card.isCollapsed ? 1 : 0,
       card.isContentMasked ? 1 : 0,
@@ -145,7 +152,7 @@ export function updateCard(card: CardUpdate): number {
   if (card.updatedAt && card.updatedAt < existingCard.updatedAt) return 0;
 
   const stmt = d.prepare(
-    'UPDATE cards SET title = ?, content = ?, tags = ?, created_at = ?, updated_at = ?, is_hidden = ?, sort_order = ?, editor_height = ?, is_collapsed = ?, is_content_masked = ? WHERE id = ?',
+    'UPDATE cards SET title = ?, content = ?, tags = ?, created_at = ?, updated_at = ?, is_hidden = ?, sort_order = ?, recent_opened_at = ?, editor_height = ?, is_collapsed = ?, is_content_masked = ? WHERE id = ?',
   );
   const info = stmt.run(
     card.title,
@@ -155,6 +162,7 @@ export function updateCard(card: CardUpdate): number {
     card.updatedAt ?? new Date().toISOString(),
     card.isArchived ? 1 : 0,
     card.position,
+    card.recentOpenedAt,
     card.editorHeight,
     card.isCollapsed ? 1 : 0,
     card.isContentMasked ? 1 : 0,

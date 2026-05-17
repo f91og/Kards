@@ -21,6 +21,7 @@ export default function App() {
     cards,
     titleErrors,
     searchQuery,
+    sortMode,
     hasMoreCards,
     isHydratingCards,
     isLoadingMoreCards,
@@ -28,6 +29,7 @@ export default function App() {
     editingCardId,
     isLargeMode,
     setSearchQuery,
+    setSortMode,
     clearCardFocus,
     selectCard,
     startEditingCard,
@@ -45,6 +47,7 @@ export default function App() {
     updateCardContent,
     updateCardEditorHeight,
     updateCardCollapsed,
+    markCardOpened,
     toggleCardContentMasked,
     removeCard,
   } = useAppStore();
@@ -82,6 +85,7 @@ export default function App() {
     stopEditingCard,
     openLargeMode,
     closeLargeMode,
+    markCardOpened,
     updateCardTitle,
     validateCardTitle,
     updateCardTags,
@@ -128,7 +132,7 @@ export default function App() {
 
   useEffect(() => {
     void hydrateCards();
-  }, [hydrateCards, normalizedQuery]);
+  }, [hydrateCards, normalizedQuery, sortMode]);
 
   useCardKeyboardShortcuts({
     cards,
@@ -179,8 +183,10 @@ export default function App() {
           searchQuery={searchQuery}
           allTags={allTags}
           showTagDropdown={showTagDropdown}
+          sortMode={sortMode}
           onFocusChange={setIsSearchFocused}
           onSearchQueryChange={setSearchQuery}
+          onSortModeChange={setSortMode}
           onTagSelect={(tag) => {
             setSearchQuery(tag);
             setIsSearchFocused(false);

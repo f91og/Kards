@@ -7,6 +7,7 @@ export interface CardRow {
   updated_at: string | null;
   is_hidden: number;
   sort_order: number | null;
+  recent_opened_at: string | null;
   editor_height: number | null;
   is_collapsed: number | null;
   is_content_masked: number | null;
@@ -23,6 +24,7 @@ export interface Card {
   excerpt: string;
   createdAt: string;
   updatedAt: string;
+  recentOpenedAt: string | null;
   isArchived: boolean;
   position: number;
   editorHeight: number;
@@ -37,6 +39,7 @@ export type NewCard = {
   tags?: string[];
   createdAt?: string;
   updatedAt?: string;
+  recentOpenedAt?: string | null;
   isArchived?: boolean;
   position?: number;
   editorHeight?: number;
@@ -50,6 +53,7 @@ export type CardUpdate = {
   content: string;
   tags: string[];
   updatedAt?: string;
+  recentOpenedAt: string | null;
   isArchived: boolean;
   position: number;
   editorHeight: number;
@@ -153,6 +157,7 @@ export function cardRowToModel(row: CardRow | null | undefined): Card | null {
     excerpt: buildCardExcerpt(row.content),
     createdAt: row.created_at,
     updatedAt,
+    recentOpenedAt: row.recent_opened_at,
     isArchived: Boolean(row.is_hidden),
     position: row.sort_order ?? 0,
     editorHeight: row.editor_height ?? 48,

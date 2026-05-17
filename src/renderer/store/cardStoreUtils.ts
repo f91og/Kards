@@ -1,17 +1,27 @@
 import type { Card } from '../../shared/models/card';
 
-export function sortCards(cards: Card[]): Card[] {
-  return [...cards].sort((left, right) => right.position - left.position || right.createdAt.localeCompare(left.createdAt));
+export type CardSortMode = 'created' | 'recent-opened';
+
+export function sortCards(cards: Card[], sortMode: CardSortMode = 'created'): Card[] {
+  return [...cards].sort((left, right) => {
+    if (sortMode === 'recent-opened') {
+      const leftRecent = left.recentOpenedAt ?? '';
+      const rightRecent = right.recentOpenedAt ?? '';
+      if (rightRecent !== leftRecent) return rightRecent.localeCompare(leftRecent);
+    }
+
+    return right.createdAt.localeCompare(left.createdAt);
+  });
 }
 
 export function findCard(cards: Card[], id: string): Card | undefined {
   return cards.find((card) => card.id === id);
 }
 
-export function mergeCard(cards: Card[], nextCard: Card): Card[] {
+export function mergeCard(cards: Card[], nextCard: Card, sortMode: CardSortMode = 'created'): Card[] {
   const hasCard = cards.some((card) => card.id === nextCard.id);
-  if (!hasCard) return sortCards([nextCard, ...cards]);
-  return sortCards(cards.map((card) => (card.id === nextCard.id ? nextCard : card)));
+  if (!hasCard) return sortCards([nextCard, ...cards], sortMode);
+  return sortCards(cards.map((card) => (card.id === nextCard.id ? nextCard : card)), sortMode);
 }
 
 export function normalizeKeyword(keyword: string): string {
