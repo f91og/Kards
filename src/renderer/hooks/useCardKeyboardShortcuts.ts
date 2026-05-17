@@ -93,7 +93,6 @@ export function useCardKeyboardShortcuts({
       const action = resolveCardInteractionAction(interactionEvent, {
         hasSelectedCard: selectedCard !== null,
         isCollapsed: selectedCard?.isCollapsed ?? false,
-        isContentMasked: selectedCard?.isContentMasked ?? false,
         isEditing: Boolean(editingCardId),
         isLargeMode,
       });

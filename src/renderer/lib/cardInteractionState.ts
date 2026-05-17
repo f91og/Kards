@@ -13,7 +13,6 @@ export type CardInteractionState = {
   isCollapsed: boolean;
   isEditing: boolean;
   isLargeMode: boolean;
-  isContentMasked: boolean;
 };
 
 export function resolveCardInteractionAction(
