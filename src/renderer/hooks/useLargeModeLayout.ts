@@ -1,27 +1,73 @@
-import { useEffect, useState, type CSSProperties, type RefObject } from 'react';
+import { useEffect, useLayoutEffect, useState, type CSSProperties, type RefObject } from 'react';
 import { useLargeModeWindowBounds } from '@/hooks/useLargeModeWindowBounds';
-import type { LargeModeDirection } from '@/lib/largeMode';
+import { getLargeModeDirectionForRail, type LargeModeDirection } from '@/lib/largeMode';
 
 const MINIMUM_LARGE_CARD_PANE_WIDTH = 620;
 const LARGE_MODE_GAP = 8;
 
 type UseLargeModeLayoutParams = {
   isLargeMode: boolean;
-  largeModeDirection: LargeModeDirection;
   appShellRef: RefObject<HTMLElement>;
   leftRailRef: RefObject<HTMLDivElement>;
 };
 
 export function useLargeModeLayout({
   isLargeMode,
-  largeModeDirection,
   appShellRef,
   leftRailRef,
 }: UseLargeModeLayoutParams) {
   const [largeModeRailWidth, setLargeModeRailWidth] = useState<number | null>(null);
+  const [largeModeDirection, setLargeModeDirection] = useState<LargeModeDirection>('right');
   const [workspaceEditorStyle, setWorkspaceEditorStyle] = useState<CSSProperties | undefined>(undefined);
 
   useLargeModeWindowBounds(isLargeMode, largeModeDirection);
+
+  useLayoutEffect(() => {
+    if (!isLargeMode) return;
+
+    let isCancelled = false;
+
+    const syncLargeModeDirection = async () => {
+      const leftRail = leftRailRef.current;
+      if (!leftRail) return;
+
+      const fallbackDirection = getLargeModeDirectionForRail(leftRail.getBoundingClientRect(), null);
+      setLargeModeDirection((currentDirection) =>
+        currentDirection === fallbackDirection ? currentDirection : fallbackDirection,
+      );
+
+      const workArea = window.kardsWindow ? await window.kardsWindow.getWorkArea() : null;
+      if (isCancelled) return;
+
+      const nextDirection = getLargeModeDirectionForRail(leftRail.getBoundingClientRect(), workArea);
+      setLargeModeDirection((currentDirection) =>
+        currentDirection === nextDirection ? currentDirection : nextDirection,
+      );
+    };
+
+    void syncLargeModeDirection();
+    window.addEventListener('resize', syncLargeModeDirection);
+    const unsubscribeBoundsChanged = window.kardsWindow?.onBoundsChanged(() => {
+      void syncLargeModeDirection();
+    });
+    const resizeObserver =
+      leftRailRef.current && typeof ResizeObserver !== 'undefined'
+        ? new ResizeObserver(() => {
+            void syncLargeModeDirection();
+          })
+        : null;
+
+    if (leftRailRef.current) {
+      resizeObserver?.observe(leftRailRef.current);
+    }
+
+    return () => {
+      isCancelled = true;
+      window.removeEventListener('resize', syncLargeModeDirection);
+      unsubscribeBoundsChanged?.();
+      resizeObserver?.disconnect();
+    };
+  }, [isLargeMode, leftRailRef]);
 
   useEffect(() => {
     const syncRailWidth = () => {

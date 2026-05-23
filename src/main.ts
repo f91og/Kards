@@ -1,4 +1,4 @@
-import { app, BrowserWindow, ipcMain, screen } from 'electron';
+import { app, BrowserWindow, ipcMain, screen, shell } from 'electron';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import {
@@ -85,6 +85,17 @@ function scheduleWindowBoundsSave(window: BrowserWindow): void {
   }, WINDOW_BOUNDS_SAVE_DELAY_MS);
 }
 
+function isExternalNavigationUrl(url: string): boolean {
+  try {
+    const targetUrl = new URL(url);
+    if (isDev && targetUrl.origin === 'http://localhost:5173') return false;
+    if (!isDev && targetUrl.protocol === 'file:') return false;
+    return ['http:', 'https:', 'mailto:'].includes(targetUrl.protocol);
+  } catch {
+    return false;
+  }
+}
+
 function createWindow(): void {
   const savedBounds = getWindowBounds();
   mainWindow = new BrowserWindow({
@@ -102,6 +113,19 @@ function createWindow(): void {
   if (process.platform === 'darwin') {
     mainWindow.setWindowButtonVisibility(false);
   }
+
+  mainWindow.webContents.setWindowOpenHandler(({ url }) => {
+    if (isExternalNavigationUrl(url)) {
+      void shell.openExternal(url);
+    }
+    return { action: 'deny' };
+  });
+
+  mainWindow.webContents.on('will-navigate', (event, url) => {
+    if (!isExternalNavigationUrl(url)) return;
+    event.preventDefault();
+    void shell.openExternal(url);
+  });
 
   if (isDev) {
     mainWindow.loadURL('http://localhost:5173');

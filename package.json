@@ -4,6 +4,10 @@
   "productName": "Kards",
   "description": "",
   "main": "dist/main.js",
+  "engines": {
+    "node": "20.x || 22.x || 24.x || 25.x",
+    "npm": ">=10"
+  },
   "scripts": {
     "dev": "concurrently \"npm run dev:main\" \"npm run dev:renderer\"",
     "dev:main": "tsc src/main.ts src/preload.cts --outDir dist --module nodenext && electron . --dev",

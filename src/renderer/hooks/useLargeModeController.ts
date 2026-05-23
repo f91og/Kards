@@ -1,7 +1,6 @@
 import { useEffect, useMemo, type CSSProperties, type RefObject } from 'react';
 import type { CardItemProps } from '@/components/CardItem';
 import { useLargeModeLayout } from '@/hooks/useLargeModeLayout';
-import type { LargeModeDirection } from '@/lib/largeMode';
 import type { Card } from '../../shared/models/card';
 
 type UseLargeModeControllerParams = {
@@ -10,7 +9,6 @@ type UseLargeModeControllerParams = {
   selectedCardId: string | null;
   editingCardId: string | null;
   isLargeMode: boolean;
-  largeModeDirection: LargeModeDirection;
   appShellRef: RefObject<HTMLElement>;
   leftRailRef: RefObject<HTMLDivElement>;
   setSearchQuery: (query: string) => void;
@@ -38,7 +36,6 @@ export function useLargeModeController({
   selectedCardId,
   editingCardId,
   isLargeMode,
-  largeModeDirection,
   appShellRef,
   leftRailRef,
   setSearchQuery,
@@ -57,9 +54,8 @@ export function useLargeModeController({
   toggleCardContentMasked,
   removeCard,
 }: UseLargeModeControllerParams) {
-  const { largeModeRailWidth, workspaceEditorStyle } = useLargeModeLayout({
+  const { largeModeDirection, largeModeRailWidth, workspaceEditorStyle } = useLargeModeLayout({
     isLargeMode,
-    largeModeDirection,
     appShellRef,
     leftRailRef,
   });
@@ -90,6 +86,20 @@ export function useLargeModeController({
     openLargeMode(selectedCard.id);
     void markCardOpened(selectedCard.id);
     collapseCardIfNeeded(selectedCard);
+  };
+
+  const toggleLargeMode = () => {
+    if (isLargeMode) {
+      closeLargeModeAndCollapseSelectedCard();
+      return;
+    }
+
+    const cardToOpen = selectedCard ?? cards[0] ?? null;
+    if (!cardToOpen) return;
+
+    openLargeMode(cardToOpen.id);
+    void markCardOpened(cardToOpen.id);
+    collapseCardIfNeeded(cardToOpen);
   };
 
   const buildCardItemProps: BuildCardItemProps = (card, overrides = {}) => ({
@@ -139,6 +149,7 @@ export function useLargeModeController({
     selectedCard,
     closeLargeModeAndCollapseSelectedCard,
     openSelectedCardInLargeMode,
+    toggleLargeMode,
     workspaceEditorStyle,
   };
 }

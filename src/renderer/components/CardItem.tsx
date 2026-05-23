@@ -1,5 +1,5 @@
 import { EditorContent } from '@tiptap/react';
-import { useEffect, useRef, type MouseEvent as ReactMouseEvent } from 'react';
+import { useEffect, useRef, type FocusEvent as ReactFocusEvent, type MouseEvent as ReactMouseEvent } from 'react';
 import { TagInput } from '@/components/TagInput';
 import { useCardEditor } from '@/hooks/useCardEditor';
 import { useResizableEditorHeight } from '@/hooks/useResizableEditorHeight';
@@ -47,9 +47,13 @@ export function CardItem({
   onContentMaskedToggle,
   onRemove,
 }: CardItemProps) {
+  const articleRef = useRef<HTMLElement | null>(null);
   const menuRef = useRef<HTMLDetailsElement | null>(null);
   const cardBodyRef = useRef<HTMLDivElement | null>(null);
   const titleInputRef = useRef<HTMLInputElement | null>(null);
+  const pendingManualFocusRef = useRef(false);
+  const pointerDownInsideCardRef = useRef(false);
+  const didFocusDefaultTitleRef = useRef(false);
 
   const closeMenu = () => {
     if (menuRef.current) {
@@ -81,11 +85,15 @@ export function CardItem({
     return false;
   };
 
-  const startEditing = (focusTarget: () => void) => {
-    if (!ensureSelected() || isEditing) return;
+  const startEditing = (focusTarget?: () => void) => {
+    if (!isSelected || isEditing) return;
 
+    pendingManualFocusRef.current = true;
     onStartEditing();
-    requestAnimationFrame(focusTarget);
+    requestAnimationFrame(() => {
+      focusTarget?.();
+      pendingManualFocusRef.current = false;
+    });
   };
 
   const activateTitleEditing = (event: ReactMouseEvent<HTMLInputElement>) => {
@@ -99,6 +107,41 @@ export function CardItem({
     });
   };
 
+  const handleCardPointerDown = (event: ReactMouseEvent<HTMLElement>) => {
+    pointerDownInsideCardRef.current = true;
+    requestAnimationFrame(() => {
+      pointerDownInsideCardRef.current = false;
+    });
+
+    const target = event.target;
+    if (!(target instanceof Element)) return;
+    if (target.closest('.card-menu, .card-menu__trigger, .card-resize-handle')) return;
+
+    if (!isSelected) {
+      onSelect();
+      return;
+    }
+
+    if (!isEditing && !isDisplayedCollapsed) {
+      startEditing();
+    }
+  };
+
+  const handleTitleBlur = (event: ReactFocusEvent<HTMLInputElement>) => {
+    onTitleBlur(card.id);
+
+    const nextFocusedElement = event.relatedTarget;
+    if (nextFocusedElement instanceof Node && articleRef.current?.contains(nextFocusedElement)) {
+      return;
+    }
+
+    if (pointerDownInsideCardRef.current) {
+      return;
+    }
+
+    onStopEditing();
+  };
+
   const activateTagEditing = () => {
     startEditing(() => {
       const tagInput = cardBodyRef.current?.querySelector<HTMLInputElement>('.tag-input__field');
@@ -108,6 +151,7 @@ export function CardItem({
 
   const activateContentEditing = () => {
     startEditing(() => {
+      if (!editor || editor.isDestroyed) return;
       editor?.commands.focus('end');
     });
   };
@@ -138,17 +182,34 @@ export function CardItem({
   });
 
   useEffect(() => {
-    editor?.setEditable(isEditing);
+    if (!editor || editor.isDestroyed) return;
+    editor.setEditable(isEditing);
   }, [editor, isEditing]);
 
   useEffect(() => {
-    if (!editor) return;
+    if (!editor || editor.isDestroyed) return;
     if (editor.getHTML() === card.content) return;
     editor.commands.setContent(card.content, { emitUpdate: false });
   }, [card.content, editor]);
 
   useEffect(() => {
-    if (!editor || !isEditing || !isSelected || isDisplayedCollapsed || card.isContentMasked) return;
+    if (!isEditing || !isSelected || card.title !== 'Untitled') {
+      didFocusDefaultTitleRef.current = false;
+      return;
+    }
+
+    if (didFocusDefaultTitleRef.current) return;
+    didFocusDefaultTitleRef.current = true;
+    requestAnimationFrame(() => {
+      titleInputRef.current?.focus();
+      titleInputRef.current?.select();
+    });
+  }, [card.title, isEditing, isSelected]);
+
+  useEffect(() => {
+    if (!editor || editor.isDestroyed || !isEditing || !isSelected || isDisplayedCollapsed || card.isContentMasked) return;
+    if (pendingManualFocusRef.current) return;
+    if (card.title === 'Untitled') return;
 
     const activeElement = document.activeElement;
     if (
@@ -159,6 +220,7 @@ export function CardItem({
     }
 
     requestAnimationFrame(() => {
+      if (editor.isDestroyed) return;
       editor.commands.focus('end');
     });
   }, [card.isContentMasked, editor, isDisplayedCollapsed, isEditing, isSelected]);
@@ -171,8 +233,9 @@ export function CardItem({
 
   return (
     <article
+      ref={articleRef}
       className={`card-item${titleError ? ' card-item--error' : ''}${isSelected ? ' card-item--selected' : ''}${isEditing ? ' card-item--editing' : ''}${isPoppedOut ? ' card-item--popped' : ''}`}
-      onMouseDown={() => onSelect()}
+      onMouseDown={handleCardPointerDown}
     >
       <div className="card-item__menu">
         {isDisplayedCollapsed ? (
@@ -259,10 +322,7 @@ export function CardItem({
         readOnly={!isEditing || isDisplayedCollapsed}
         onMouseDown={activateTitleEditing}
         onChange={(event) => onTitleChange(card.id, event.target.value)}
-        onBlur={() => {
-          onTitleBlur(card.id);
-          onStopEditing();
-        }}
+        onBlur={handleTitleBlur}
         onFocus={() => {
           onSelect();
           closeMenu();

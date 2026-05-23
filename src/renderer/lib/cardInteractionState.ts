@@ -21,18 +21,20 @@ export function resolveCardInteractionAction(
 ): CardInteractionAction {
   if (event === 'escape') {
     if (state.isEditing) return 'stop-editing';
-    if (state.isLargeMode && state.hasSelectedCard) return 'close-large-card';
     return 'none';
   }
 
   if (event === 'enter') {
-    if (state.isLargeMode && state.hasSelectedCard && !state.isEditing) return 'start-editing';
-    return 'none';
+    if (!state.hasSelectedCard || state.isEditing) return 'none';
+    if (state.isCollapsed) return 'expand-card';
+    return 'start-editing';
   }
 
-  if (state.isEditing || !state.hasSelectedCard) return 'none';
+  if (event === 'space') {
+    if (state.isEditing || !state.hasSelectedCard) return 'none';
+    if (state.isLargeMode) return 'close-large-card';
+    return 'open-large-card';
+  }
 
-  if (state.isLargeMode) return 'close-large-card';
-  if (state.isCollapsed) return 'expand-card';
-  return 'open-large-card';
+  return 'none';
 }

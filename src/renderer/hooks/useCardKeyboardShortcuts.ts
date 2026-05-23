@@ -14,6 +14,7 @@ type UseCardKeyboardShortcutsParams = {
   isSearchFocused: boolean;
   searchInputRef: RefObject<HTMLInputElement>;
   setIsSearchFocused: (isFocused: boolean) => void;
+  addCard: () => Promise<void>;
   selectCard: (cardId: string) => void;
   startEditingCard: (cardId: string) => void;
   stopEditingCard: (cardId: string) => void;
@@ -30,6 +31,7 @@ export function useCardKeyboardShortcuts({
   isSearchFocused,
   searchInputRef,
   setIsSearchFocused,
+  addCard,
   selectCard,
   startEditingCard,
   stopEditingCard,
@@ -55,7 +57,7 @@ export function useCardKeyboardShortcuts({
       selectCard(cards[nextIndex].id);
     };
 
-    const executeCardInteractionAction = (action: CardInteractionAction, selectedCard: Card | null) => {
+    const executeCardInteractionAction = (action: CardInteractionAction) => {
       if (action === 'none') return false;
 
       if (action === 'stop-editing' && editingCardId) {
@@ -68,8 +70,8 @@ export function useCardKeyboardShortcuts({
         return true;
       }
 
-      if (action === 'expand-card' && selectedCard) {
-        void updateCardCollapsed(selectedCard.id, false).catch((error) => {
+      if (action === 'expand-card' && selectedCardId) {
+        void updateCardCollapsed(selectedCardId, false).catch((error) => {
           console.error('Failed to expand selected card', error);
         });
         return true;
@@ -92,12 +94,12 @@ export function useCardKeyboardShortcuts({
       const selectedCard = selectedCardId ? cards.find((card) => card.id === selectedCardId) ?? null : null;
       const action = resolveCardInteractionAction(interactionEvent, {
         hasSelectedCard: selectedCard !== null,
-        isCollapsed: selectedCard?.isCollapsed ?? false,
+        isCollapsed: !isLargeMode && Boolean(selectedCard?.isCollapsed),
         isEditing: Boolean(editingCardId),
         isLargeMode,
       });
 
-      const handled = executeCardInteractionAction(action, selectedCard);
+      const handled = executeCardInteractionAction(action);
       if (handled) {
         event.preventDefault();
       }
@@ -106,6 +108,12 @@ export function useCardKeyboardShortcuts({
     };
 
     const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.metaKey && !event.ctrlKey && !event.altKey && event.key.toLocaleLowerCase() === 'n') {
+        event.preventDefault();
+        void addCard();
+        return;
+      }
+
       if (event.key === 'Escape' && isSearchFocused) {
         event.preventDefault();
         setIsSearchFocused(false);
@@ -144,6 +152,7 @@ export function useCardKeyboardShortcuts({
       window.removeEventListener('keydown', handleKeyDown);
     };
   }, [
+    addCard,
     cards,
     closeLargeModeAndCollapseSelectedCard,
     editingCardId,

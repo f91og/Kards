@@ -13,11 +13,13 @@ export type SettingsField = {
 type AppTitleBarProps = {
   themeMode: 'light' | 'dark';
   isPinned: boolean;
+  isLargeMode: boolean;
   isSettingsOpen: boolean;
   settingsFields: readonly SettingsField[];
   settingsRef: RefObject<HTMLDivElement>;
   onAddCard: () => void;
   onToggleCollapseAllCards: () => void;
+  onToggleLargeMode: () => void;
   onToggleThemeMode: () => void;
   onTogglePin: () => Promise<void>;
   onToggleSettingsOpen: () => void;
@@ -26,11 +28,13 @@ type AppTitleBarProps = {
 export function AppTitleBar({
   themeMode,
   isPinned,
+  isLargeMode,
   isSettingsOpen,
   settingsFields,
   settingsRef,
   onAddCard,
   onToggleCollapseAllCards,
+  onToggleLargeMode,
   onToggleThemeMode,
   onTogglePin,
   onToggleSettingsOpen,
@@ -85,6 +89,21 @@ export function AppTitleBar({
             />
           </svg>
         )}
+      </button>
+
+      <button
+        type="button"
+        className={`window-titlebar__large-mode${isLargeMode ? ' window-titlebar__large-mode--active' : ''}`}
+        onClick={onToggleLargeMode}
+        aria-label={isLargeMode ? 'Close large card view' : 'Open large card view'}
+        aria-pressed={isLargeMode}
+      >
+        <svg viewBox="0 0 16 16" aria-hidden="true" className="window-titlebar__large-mode-icon">
+          <path
+            d="M2.75 3.5A1.75 1.75 0 0 1 4.5 1.75h7A1.75 1.75 0 0 1 13.25 3.5v9a1.75 1.75 0 0 1-1.75 1.75h-7a1.75 1.75 0 0 1-1.75-1.75v-9Zm1.75-.25a.25.25 0 0 0-.25.25v9c0 .14.11.25.25.25h7a.25.25 0 0 0 .25-.25v-9a.25.25 0 0 0-.25-.25h-7Zm1.25 2.5A.75.75 0 0 1 6.5 5h3a.75.75 0 0 1 0 1.5h-3a.75.75 0 0 1-.75-.75Zm0 2.25A.75.75 0 0 1 6.5 7.25h3a.75.75 0 0 1 0 1.5h-3A.75.75 0 0 1 5.75 8Zm0 2.25a.75.75 0 0 1 .75-.75h3a.75.75 0 0 1 0 1.5h-3a.75.75 0 0 1-.75-.75Z"
+            fill="currentColor"
+          />
+        </svg>
       </button>
 
       <button
