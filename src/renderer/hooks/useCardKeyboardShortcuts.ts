@@ -4,6 +4,7 @@ import {
   type CardInteractionAction,
   type CardInteractionEvent,
 } from '@/lib/cardInteractionState';
+import type { LargeModeDirection } from '@/lib/largeMode';
 import type { Card } from '../../shared/models/card';
 
 type UseCardKeyboardShortcutsParams = {
@@ -11,6 +12,7 @@ type UseCardKeyboardShortcutsParams = {
   selectedCardId: string | null;
   editingCardId: string | null;
   isLargeMode: boolean;
+  largeModeDirection: LargeModeDirection;
   isSearchFocused: boolean;
   searchInputRef: RefObject<HTMLInputElement>;
   setIsSearchFocused: (isFocused: boolean) => void;
@@ -28,6 +30,7 @@ export function useCardKeyboardShortcuts({
   selectedCardId,
   editingCardId,
   isLargeMode,
+  largeModeDirection,
   isSearchFocused,
   searchInputRef,
   setIsSearchFocused,
@@ -107,8 +110,59 @@ export function useCardKeyboardShortcuts({
       return handled;
     };
 
+    const handleDirectionalLargeModeKey = (event: KeyboardEvent) => {
+      const isOpenKey = largeModeDirection === 'right' ? event.key === 'l' : event.key === 'j';
+      const isCloseKey = largeModeDirection === 'right' ? event.key === 'j' : event.key === 'l';
+
+      if (isOpenKey && !isLargeMode) {
+        const handled = executeCardInteractionAction('open-large-card');
+        if (handled) {
+          event.preventDefault();
+        }
+        return handled;
+      }
+
+      if (isCloseKey && isLargeMode) {
+        const handled = executeCardInteractionAction('close-large-card');
+        if (handled) {
+          event.preventDefault();
+        }
+        return handled;
+      }
+
+      return false;
+    };
+
+    const dockWindowToScreenEdge = async (edge: 'left' | 'right') => {
+      if (!window.kardsWindow) return;
+
+      const [bounds, workArea] = await Promise.all([
+        window.kardsWindow.getBounds(),
+        window.kardsWindow.getWorkArea(),
+      ]);
+      if (!bounds || !workArea) return;
+
+      const nextX = edge === 'left' ? workArea.x : workArea.x + workArea.width - bounds.width;
+      await window.kardsWindow.setBounds({
+        x: nextX,
+        y: bounds.y,
+        width: bounds.width,
+        height: bounds.height,
+      });
+    };
+
     const handleKeyDown = (event: KeyboardEvent) => {
-      if (event.metaKey && !event.ctrlKey && !event.altKey && event.key.toLocaleLowerCase() === 'n') {
+      const key = event.key.toLocaleLowerCase();
+
+      if (event.metaKey && !event.ctrlKey && !event.altKey && (key === 'j' || key === 'l')) {
+        event.preventDefault();
+        void dockWindowToScreenEdge(key === 'j' ? 'left' : 'right').catch((error) => {
+          console.error('Failed to dock window', error);
+        });
+        return;
+      }
+
+      if (event.metaKey && !event.ctrlKey && !event.altKey && key === 'n') {
         event.preventDefault();
         void addCard();
         return;
@@ -133,8 +187,8 @@ export function useCardKeyboardShortcuts({
         searchInputRef.current?.focus();
         return;
       }
-      if (event.key === ' ') {
-        handleCardInteractionKey(event, 'space');
+      if (event.key === 'j' || event.key === 'l') {
+        handleDirectionalLargeModeKey(event);
         return;
       }
       if (event.key === 'Enter') {
@@ -157,6 +211,7 @@ export function useCardKeyboardShortcuts({
     closeLargeModeAndCollapseSelectedCard,
     editingCardId,
     isLargeMode,
+    largeModeDirection,
     isSearchFocused,
     openSelectedCardInLargeMode,
     searchInputRef,

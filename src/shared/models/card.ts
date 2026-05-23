@@ -14,6 +14,7 @@ export interface CardRow {
 }
 
 export type CardContentFormat = 'html';
+export type CardSortMode = 'created' | 'recent-opened';
 
 export interface Card {
   id: string;

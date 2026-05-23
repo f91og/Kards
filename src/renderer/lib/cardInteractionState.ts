@@ -1,4 +1,4 @@
-export type CardInteractionEvent = 'escape' | 'enter' | 'space';
+export type CardInteractionEvent = 'escape' | 'enter';
 
 export type CardInteractionAction =
   | 'none'
@@ -28,12 +28,6 @@ export function resolveCardInteractionAction(
     if (!state.hasSelectedCard || state.isEditing) return 'none';
     if (state.isCollapsed) return 'expand-card';
     return 'start-editing';
-  }
-
-  if (event === 'space') {
-    if (state.isEditing || !state.hasSelectedCard) return 'none';
-    if (state.isLargeMode) return 'close-large-card';
-    return 'open-large-card';
   }
 
   return 'none';

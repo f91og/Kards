@@ -1,4 +1,4 @@
-import type { Card, CardUpdate } from '../../shared/models/card';
+import type { Card, CardSortMode, CardUpdate } from '../../shared/models/card';
 
 const CARDS_PAGE_SIZE = 20;
 
@@ -6,7 +6,7 @@ export type ListCardsOptions = {
   limit?: number;
   offset?: number;
   keyword?: string | null;
-  sortMode?: 'created' | 'recent-opened';
+  sortMode?: CardSortMode;
 };
 
 export function getCardsPageSize(): number {
@@ -36,4 +36,14 @@ export async function updateCard(card: CardUpdate): Promise<Card | null> {
 export async function deleteCard(id: string): Promise<Card | null> {
   if (!window.kardsCards) return null;
   return window.kardsCards.delete(id);
+}
+
+export async function getCardSortMode(): Promise<CardSortMode> {
+  if (!window.kardsSettings) return 'created';
+  return window.kardsSettings.getCardSortMode();
+}
+
+export async function saveCardSortMode(sortMode: CardSortMode): Promise<CardSortMode> {
+  if (!window.kardsSettings) return sortMode;
+  return window.kardsSettings.setCardSortMode(sortMode);
 }

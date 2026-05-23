@@ -29,6 +29,12 @@ export function SearchBox({
   const [isSortMenuOpen, setIsSortMenuOpen] = useState(false);
   const sortMenuRef = useRef<HTMLDetailsElement | null>(null);
 
+  const blurSortMenu = () => {
+    if (sortMenuRef.current?.contains(document.activeElement)) {
+      (document.activeElement as HTMLElement | null)?.blur();
+    }
+  };
+
   useEffect(() => {
     if (!showTagDropdown || !isSortMenuOpen) return;
     if (sortMenuRef.current) {
@@ -97,6 +103,8 @@ export function SearchBox({
             if (isOpen) {
               onFocusChange(false);
               searchInputRef.current?.blur();
+            } else {
+              blurSortMenu();
             }
           }}
         >
@@ -120,6 +128,7 @@ export function SearchBox({
                   sortMenuRef.current.open = false;
                 }
                 setIsSortMenuOpen(false);
+                blurSortMenu();
               }}
             >
               创建时间
@@ -134,6 +143,7 @@ export function SearchBox({
                   sortMenuRef.current.open = false;
                 }
                 setIsSortMenuOpen(false);
+                blurSortMenu();
               }}
             >
               最近打开

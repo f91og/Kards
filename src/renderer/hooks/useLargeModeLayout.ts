@@ -23,8 +23,6 @@ export function useLargeModeLayout({
   useLargeModeWindowBounds(isLargeMode, largeModeDirection);
 
   useLayoutEffect(() => {
-    if (!isLargeMode) return;
-
     let isCancelled = false;
 
     const syncLargeModeDirection = async () => {
@@ -67,7 +65,7 @@ export function useLargeModeLayout({
       unsubscribeBoundsChanged?.();
       resizeObserver?.disconnect();
     };
-  }, [isLargeMode, leftRailRef]);
+  }, [leftRailRef]);
 
   useEffect(() => {
     const syncRailWidth = () => {

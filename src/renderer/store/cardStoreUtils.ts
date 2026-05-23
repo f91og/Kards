@@ -1,6 +1,6 @@
-import type { Card } from '../../shared/models/card';
+import type { Card, CardSortMode } from '../../shared/models/card';
 
-export type CardSortMode = 'created' | 'recent-opened';
+export type { CardSortMode };
 
 export function sortCards(cards: Card[], sortMode: CardSortMode = 'created'): Card[] {
   return [...cards].sort((left, right) => {
@@ -22,6 +22,12 @@ export function mergeCard(cards: Card[], nextCard: Card, sortMode: CardSortMode 
   const hasCard = cards.some((card) => card.id === nextCard.id);
   if (!hasCard) return sortCards([nextCard, ...cards], sortMode);
   return sortCards(cards.map((card) => (card.id === nextCard.id ? nextCard : card)), sortMode);
+}
+
+export function mergeCardInPlace(cards: Card[], nextCard: Card): Card[] {
+  const hasCard = cards.some((card) => card.id === nextCard.id);
+  if (!hasCard) return [nextCard, ...cards];
+  return cards.map((card) => (card.id === nextCard.id ? nextCard : card));
 }
 
 export function normalizeKeyword(keyword: string): string {

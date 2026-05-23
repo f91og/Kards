@@ -1,5 +1,5 @@
 import { contextBridge, ipcRenderer } from 'electron';
-import type { Card, CardUpdate } from './shared/models/card.js';
+import type { Card, CardSortMode, CardUpdate } from './shared/models/card.js';
 
 contextBridge.exposeInMainWorld('kardsWindow', {
   togglePin: (): Promise<boolean> => ipcRenderer.invoke('window:toggle-pin') as Promise<boolean>,
@@ -23,9 +23,15 @@ contextBridge.exposeInMainWorld('kardsWindow', {
 });
 
 contextBridge.exposeInMainWorld('kardsCards', {
-  list: (options?: { limit?: number; offset?: number; keyword?: string | null; sortMode?: 'created' | 'recent-opened' }): Promise<Card[]> =>
+  list: (options?: { limit?: number; offset?: number; keyword?: string | null; sortMode?: CardSortMode }): Promise<Card[]> =>
     ipcRenderer.invoke('cards:list', options) as Promise<Card[]>,
   create: (): Promise<Card | null> => ipcRenderer.invoke('cards:create') as Promise<Card | null>,
   update: (card: CardUpdate): Promise<Card | null> => ipcRenderer.invoke('cards:update', card) as Promise<Card | null>,
   delete: (id: string): Promise<Card | null> => ipcRenderer.invoke('cards:delete', id) as Promise<Card | null>,
+});
+
+contextBridge.exposeInMainWorld('kardsSettings', {
+  getCardSortMode: (): Promise<CardSortMode> => ipcRenderer.invoke('settings:get-card-sort-mode') as Promise<CardSortMode>,
+  setCardSortMode: (sortMode: CardSortMode): Promise<CardSortMode> =>
+    ipcRenderer.invoke('settings:set-card-sort-mode', sortMode) as Promise<CardSortMode>,
 });

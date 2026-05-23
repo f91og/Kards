@@ -1,19 +1,38 @@
 import { create } from 'zustand';
 import { buildCardExcerpt, type Card } from '../../shared/models/card';
-import { deleteCard, createCard, getCardsPageSize, listCards, updateCard as persistUpdatedCard } from './cardsRepository';
-import { findCard, matchesSearch, mergeCard, normalizeKeyword, sortCards, type CardSortMode, validateCardTitle as getCardTitleError } from './cardStoreUtils';
+import {
+  deleteCard,
+  createCard,
+  getCardSortMode,
+  getCardsPageSize,
+  listCards,
+  saveCardSortMode,
+  updateCard as persistUpdatedCard,
+} from './cardsRepository';
+import {
+  findCard,
+  matchesSearch,
+  mergeCard,
+  mergeCardInPlace,
+  normalizeKeyword,
+  sortCards,
+  type CardSortMode,
+  validateCardTitle as getCardTitleError,
+} from './cardStoreUtils';
 
 type AppState = {
   cards: Card[];
   titleErrors: Record<string, string | undefined>;
   searchQuery: string;
   sortMode: CardSortMode;
+  isSortModeHydrated: boolean;
   hasMoreCards: boolean;
   isHydratingCards: boolean;
   isLoadingMoreCards: boolean;
   selectedCardId: string | null;
   editingCardId: string | null;
   isLargeMode: boolean;
+  hydrateSortMode: () => Promise<void>;
   hydrateCards: () => Promise<void>;
   loadMoreCards: () => Promise<void>;
   addCard: () => Promise<void>;
@@ -41,6 +60,7 @@ type AppState = {
 type PaginationState = {
   loadedCount: number;
   activeKeyword: string;
+  activeSortMode: CardSortMode;
 };
 
 const latestPersistRequestByCardId: Record<string, number> = {};
@@ -48,6 +68,7 @@ let nextPersistRequestId = 1;
 const paginationState: PaginationState = {
   loadedCount: 0,
   activeKeyword: '',
+  activeSortMode: 'created',
 };
 
 async function persistCard(card: Card): Promise<Card | null> {
@@ -70,6 +91,10 @@ function syncLoadedCount(cards: Card[]): void {
   paginationState.loadedCount = cards.length;
 }
 
+function mergeUpdatedCard(cards: Card[], card: Card, sortMode: CardSortMode, preserveOrder: boolean | undefined): Card[] {
+  return preserveOrder ? mergeCardInPlace(cards, card) : mergeCard(cards, card, sortMode);
+}
+
 async function refreshCards(
   set: (fn: (state: AppState) => Partial<AppState>) => void,
   get: () => AppState,
@@ -79,16 +104,19 @@ async function refreshCards(
   const sortMode = get().sortMode;
 
   if (mode === 'reset') {
+    const shouldClearCards = paginationState.activeKeyword !== keyword;
     paginationState.activeKeyword = keyword;
+    paginationState.activeSortMode = sortMode;
     paginationState.loadedCount = 0;
-    set(() => ({
-      cards: [],
+    set((state) => ({
+      cards: shouldClearCards ? [] : state.cards,
       hasMoreCards: true,
       isHydratingCards: true,
     }));
   } else {
     if (get().isLoadingMoreCards || !get().hasMoreCards) return;
     paginationState.activeKeyword = keyword;
+    paginationState.activeSortMode = sortMode;
     set(() => ({
       isLoadingMoreCards: true,
     }));
@@ -97,7 +125,7 @@ async function refreshCards(
   const currentOffset = mode === 'reset' ? 0 : paginationState.loadedCount;
   const nextCards = await listCards({ offset: currentOffset, keyword, sortMode });
 
-  if (paginationState.activeKeyword !== keyword) {
+  if (paginationState.activeKeyword !== keyword || paginationState.activeSortMode !== sortMode) {
     set(() => ({
       isHydratingCards: false,
       isLoadingMoreCards: false,
@@ -123,6 +151,7 @@ async function updatePersistedCard(
   get: () => AppState,
   id: string,
   updater: (card: Card) => Card,
+  options: { preserveOrder?: boolean } = {},
 ): Promise<void> {
   const currentCard = findCard(get().cards, id);
   if (!currentCard) return;
@@ -135,7 +164,9 @@ async function updatePersistedCard(
   latestPersistRequestByCardId[id] = requestId;
 
   set((state) => {
-    const nextCards = mergeCard(state.cards, optimisticCard, state.sortMode).filter((card) => matchesSearch(card, state.searchQuery));
+    const nextCards = mergeUpdatedCard(state.cards, optimisticCard, state.sortMode, options.preserveOrder).filter((card) =>
+      matchesSearch(card, state.searchQuery),
+    );
     syncLoadedCount(nextCards);
 
     return {
@@ -149,7 +180,7 @@ async function updatePersistedCard(
 
   set((state) => {
     const nextCards = matchesSearch(persistedCard, state.searchQuery)
-      ? mergeCard(state.cards, persistedCard, state.sortMode)
+      ? mergeUpdatedCard(state.cards, persistedCard, state.sortMode, options.preserveOrder)
       : state.cards.filter((card) => card.id !== persistedCard.id);
     syncLoadedCount(nextCards);
 
@@ -164,12 +195,20 @@ export const useAppStore = create<AppState>((set, get) => ({
   titleErrors: {},
   searchQuery: '',
   sortMode: 'created',
+  isSortModeHydrated: false,
   hasMoreCards: true,
   isHydratingCards: false,
   isLoadingMoreCards: false,
   selectedCardId: null,
   editingCardId: null,
   isLargeMode: false,
+  hydrateSortMode: async () => {
+    const sortMode = await getCardSortMode();
+    set({
+      sortMode,
+      isSortModeHydrated: true,
+    });
+  },
   hydrateCards: async () => {
     await refreshCards(set, get, 'reset');
   },
@@ -283,10 +322,16 @@ export const useAppStore = create<AppState>((set, get) => ({
     }));
   },
   markCardOpened: async (id) => {
-    await updatePersistedCard(set, get, id, (card) => ({
-      ...card,
-      recentOpenedAt: new Date().toISOString(),
-    }));
+    await updatePersistedCard(
+      set,
+      get,
+      id,
+      (card) => ({
+        ...card,
+        recentOpenedAt: new Date().toISOString(),
+      }),
+      { preserveOrder: true },
+    );
   },
   toggleCardContentMasked: async (id) => {
     await updatePersistedCard(set, get, id, (card) => ({
@@ -322,7 +367,18 @@ export const useAppStore = create<AppState>((set, get) => ({
     await refreshCards(set, get, 'append');
   },
   setSearchQuery: (searchQuery) => set({ searchQuery }),
-  setSortMode: (sortMode) => set({ sortMode }),
+  setSortMode: (sortMode) => {
+    set((state) => {
+      const nextCards = sortCards(state.cards, sortMode);
+      syncLoadedCount(nextCards);
+
+      return {
+        sortMode,
+        cards: nextCards,
+      };
+    });
+    void saveCardSortMode(sortMode);
+  },
   clearCardFocus: () =>
     set({
       selectedCardId: null,

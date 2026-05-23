@@ -22,6 +22,7 @@ export default function App() {
     titleErrors,
     searchQuery,
     sortMode,
+    isSortModeHydrated,
     hasMoreCards,
     isHydratingCards,
     isLoadingMoreCards,
@@ -37,6 +38,7 @@ export default function App() {
     openLargeMode,
     closeLargeMode,
     resetCardInteractionState,
+    hydrateSortMode,
     hydrateCards,
     loadMoreCards,
     addCard,
@@ -69,6 +71,7 @@ export default function App() {
     buildListCardItemProps,
     closeLargeModeAndCollapseSelectedCard,
     leftRailStyle,
+    largeModeDirection,
     openSelectedCardInLargeMode,
     selectedCard,
     toggleLargeMode,
@@ -133,14 +136,20 @@ export default function App() {
   ]);
 
   useEffect(() => {
+    void hydrateSortMode();
+  }, [hydrateSortMode]);
+
+  useEffect(() => {
+    if (!isSortModeHydrated) return;
     void hydrateCards();
-  }, [hydrateCards, normalizedQuery, sortMode]);
+  }, [hydrateCards, isSortModeHydrated, normalizedQuery, sortMode]);
 
   useCardKeyboardShortcuts({
     cards,
     selectedCardId,
     editingCardId,
     isLargeMode,
+    largeModeDirection,
     isSearchFocused,
     searchInputRef,
     setIsSearchFocused,

@@ -5,14 +5,16 @@ import {
   closeDB,
   deleteCard,
   getCardById,
+  getCardSortMode,
   getCardsPage,
   getAllCards,
   getWindowBounds,
   insertCard,
+  saveCardSortMode,
   saveWindowBounds,
   updateCard,
 } from './db/dbHelper.js';
-import type { Card, CardUpdate } from './shared/models/card.js';
+import type { Card, CardSortMode, CardUpdate } from './shared/models/card.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const isDev = !app.isPackaged;
@@ -241,13 +243,23 @@ ipcMain.handle('window:set-bounds', (event, bounds: { width: number; height: num
   return window.getBounds();
 });
 
-ipcMain.handle('cards:list', (_event, options?: { limit?: number; offset?: number; keyword?: string | null; sortMode?: 'created' | 'recent-opened' }) => {
+ipcMain.handle('cards:list', (_event, options?: { limit?: number; offset?: number; keyword?: string | null; sortMode?: CardSortMode }) => {
   const cards = getAllCards();
   if (cards.length === 0) {
     getOrCreateCards();
   }
 
   return getCardsPage(options?.limit ?? 20, options?.offset ?? 0, options?.keyword, options?.sortMode ?? 'created');
+});
+
+ipcMain.handle('settings:get-card-sort-mode', () => {
+  return getCardSortMode();
+});
+
+ipcMain.handle('settings:set-card-sort-mode', (_event, sortMode: CardSortMode) => {
+  const nextSortMode = sortMode === 'recent-opened' ? 'recent-opened' : 'created';
+  saveCardSortMode(nextSortMode);
+  return nextSortMode;
 });
 
 ipcMain.handle('cards:create', () => {

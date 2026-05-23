@@ -8,6 +8,7 @@ import {
   cardRowsToModels,
   type Card,
   type CardRow,
+  type CardSortMode,
   type CardUpdate,
   type NewCard,
   type WindowBoundsState,
@@ -15,6 +16,8 @@ import {
 
 const DB_NAME = 'memcards.db';
 const DEFAULT_EDITOR_HEIGHT = 48;
+const SORT_MODE_SETTING_KEY = 'card_sort_mode';
+const WINDOW_BOUNDS_SETTING_KEY = 'window_bounds';
 
 let db: DatabaseInstance | null = null;
 
@@ -85,7 +88,7 @@ export function getCardsPage(
   limit: number = 20,
   offset: number = 0,
   keyword?: string | null,
-  sortMode: 'created' | 'recent-opened' = 'created',
+  sortMode: CardSortMode = 'created',
 ): Card[] {
   const d = openDB();
   const orderBy = sortMode === 'recent-opened'
@@ -105,6 +108,30 @@ export function getCardsPage(
   );
   const rows = stmt.all(limit, offset) as CardRow[];
   return cardRowsToModels(rows);
+}
+
+function saveAppSetting(key: string, value: string): void {
+  const d = openDB();
+  d.prepare(
+    'INSERT INTO app_settings (key, value) VALUES (?, ?) ON CONFLICT(key) DO UPDATE SET value = excluded.value',
+  ).run(key, value);
+}
+
+function getAppSetting(key: string): string | null {
+  const d = openDB();
+  const row = d.prepare('SELECT value FROM app_settings WHERE key = ?').get(key) as
+    | { value: string }
+    | undefined;
+
+  return row?.value ?? null;
+}
+
+export function saveCardSortMode(sortMode: CardSortMode): void {
+  saveAppSetting(SORT_MODE_SETTING_KEY, sortMode);
+}
+
+export function getCardSortMode(): CardSortMode {
+  return getAppSetting(SORT_MODE_SETTING_KEY) === 'recent-opened' ? 'recent-opened' : 'created';
 }
 
 export function getCardById(id: string): Card | null {
@@ -172,22 +199,15 @@ export function updateCard(card: CardUpdate): number {
 }
 
 export function saveWindowBounds(bounds: WindowBoundsState): void {
-  const d = openDB();
-  d.prepare(
-    'INSERT INTO app_settings (key, value) VALUES (?, ?) ON CONFLICT(key) DO UPDATE SET value = excluded.value',
-  ).run('window_bounds', JSON.stringify(bounds));
+  saveAppSetting(WINDOW_BOUNDS_SETTING_KEY, JSON.stringify(bounds));
 }
 
 export function getWindowBounds(): WindowBoundsState | null {
-  const d = openDB();
-  const row = d.prepare('SELECT value FROM app_settings WHERE key = ?').get('window_bounds') as
-    | { value: string }
-    | undefined;
-
-  if (!row) return null;
+  const value = getAppSetting(WINDOW_BOUNDS_SETTING_KEY);
+  if (!value) return null;
 
   try {
-    const parsed = JSON.parse(row.value) as Partial<WindowBoundsState>;
+    const parsed = JSON.parse(value) as Partial<WindowBoundsState>;
     if (typeof parsed.width === 'number' && typeof parsed.height === 'number') {
       return {
         width: parsed.width,
