@@ -125,7 +125,7 @@ export function AppTitleBar({
       <div ref={settingsRef} className="window-settings">
         <button
           type="button"
-          className={`window-titlebar__settings${isSettingsOpen ? ' window-titlebar__settings--active' : ''}`}
+          className="window-titlebar__settings"
           onClick={onToggleSettingsOpen}
           aria-label="Open settings"
           aria-expanded={isSettingsOpen}

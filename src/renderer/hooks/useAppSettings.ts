@@ -8,6 +8,9 @@ type ThemeMode = 'light' | 'dark';
 const DEFAULT_TITLE_FONT_SIZE_REM = 0.7;
 const DEFAULT_CONTENT_FONT_SIZE_REM = 0.94;
 const DEFAULT_WINDOW_OPACITY = 1;
+const CARD_FONT_SIZE_MIN_REM = '0.5';
+const CARD_FONT_SIZE_MAX_REM = '1.4';
+const CARD_FONT_SIZE_STEP_REM = '0.02';
 const THEME_STORAGE_KEY = 'kards-theme';
 const TITLE_FONT_SIZE_STORAGE_KEY = 'kards-title-font-size';
 const CONTENT_FONT_SIZE_STORAGE_KEY = 'kards-content-font-size';
@@ -76,18 +79,18 @@ export function useAppSettings() {
     () => [
       {
         label: 'Title size',
-        min: '0.5',
-        max: '1.4',
-        step: '0.02',
+        min: CARD_FONT_SIZE_MIN_REM,
+        max: CARD_FONT_SIZE_MAX_REM,
+        step: CARD_FONT_SIZE_STEP_REM,
         value: titleFontSize,
         onChange: setTitleFontSize,
         formatValue: (nextValue: number) => `${nextValue.toFixed(2)}rem`,
       },
       {
         label: 'Content size',
-        min: '0.7',
-        max: '1.4',
-        step: '0.02',
+        min: CARD_FONT_SIZE_MIN_REM,
+        max: CARD_FONT_SIZE_MAX_REM,
+        step: CARD_FONT_SIZE_STEP_REM,
         value: contentFontSize,
         onChange: setContentFontSize,
         formatValue: (nextValue: number) => `${nextValue.toFixed(2)}rem`,

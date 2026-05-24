@@ -14,7 +14,7 @@ import {
   saveWindowBounds,
   updateCard,
 } from './db/dbHelper.js';
-import type { Card, CardSortMode, CardUpdate } from './shared/models/card.js';
+import { DEFAULT_CARD_TITLE, type Card, type CardSortMode, type CardUpdate } from './shared/models/card.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const isDev = !app.isPackaged;
@@ -32,7 +32,7 @@ function emitWindowBoundsChanged(window: BrowserWindow): void {
 
 function createDefaultCard(position: number = 1): Card | null {
   const id = insertCard({
-    title: 'Untitled',
+    title: DEFAULT_CARD_TITLE,
     content: '',
     tags: [],
     position,

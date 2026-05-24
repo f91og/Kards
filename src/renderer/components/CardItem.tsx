@@ -1,10 +1,17 @@
 import { EditorContent } from '@tiptap/react';
-import { useEffect, useRef, useState, type FocusEvent as ReactFocusEvent, type MouseEvent as ReactMouseEvent } from 'react';
+import {
+  useEffect,
+  useRef,
+  useState,
+  type FocusEvent as ReactFocusEvent,
+  type KeyboardEvent as ReactKeyboardEvent,
+  type MouseEvent as ReactMouseEvent,
+} from 'react';
 import { TagInput } from '@/components/TagInput';
 import { useCardEditor } from '@/hooks/useCardEditor';
 import { useResizableEditorHeight } from '@/hooks/useResizableEditorHeight';
 import { copyCardContentToClipboard } from '@/lib/clipboard';
-import { htmlToPlainText, type Card } from '../../shared/models/card';
+import { DEFAULT_CARD_TITLE, htmlToPlainText, type Card } from '../../shared/models/card';
 
 const CONTEXT_MENU_WIDTH = 80;
 const CONTEXT_MENU_HEIGHT = 170;
@@ -60,6 +67,7 @@ export function CardItem({
   const cardBodyRef = useRef<HTMLDivElement | null>(null);
   const titleInputRef = useRef<HTMLInputElement | null>(null);
   const pendingManualFocusRef = useRef(false);
+  const pendingTitleToContentFocusRef = useRef(false);
   const pointerDownInsideCardRef = useRef(false);
   const didFocusDefaultTitleRef = useRef(false);
   const [contextMenuPosition, setContextMenuPosition] = useState<{ x: number; y: number } | null>(null);
@@ -78,6 +86,7 @@ export function CardItem({
   const toggleCollapsed = () => {
     closeMenu();
     stopResize();
+    onStopEditing();
     onCollapsedChange(card.id, !isDisplayedCollapsed);
   };
 
@@ -126,7 +135,7 @@ export function CardItem({
 
     const target = event.target;
     if (!(target instanceof Element)) return;
-    if (target.closest('.card-context-menu, .card-resize-handle')) return;
+    if (target.closest('.card-context-menu, .card-footer-action')) return;
 
     if (!isSelected) {
       onSelect();
@@ -151,6 +160,10 @@ export function CardItem({
   const handleTitleBlur = (event: ReactFocusEvent<HTMLInputElement>) => {
     onTitleBlur(card.id);
 
+    if (pendingTitleToContentFocusRef.current) {
+      return;
+    }
+
     const nextFocusedElement = event.relatedTarget;
     if (nextFocusedElement instanceof Node && articleRef.current?.contains(nextFocusedElement)) {
       return;
@@ -161,6 +174,24 @@ export function CardItem({
     }
 
     onStopEditing();
+  };
+
+  const handleTitleKeyDown = (event: ReactKeyboardEvent<HTMLInputElement>) => {
+    if (event.key !== 'Enter' || event.nativeEvent.isComposing) return;
+
+    event.preventDefault();
+    if (!isEditing || isDisplayedCollapsed || !editor || editor.isDestroyed) return;
+
+    pendingTitleToContentFocusRef.current = true;
+    requestAnimationFrame(() => {
+      if (!editor.isDestroyed) {
+        editor.commands.focus('end');
+      }
+
+      requestAnimationFrame(() => {
+        pendingTitleToContentFocusRef.current = false;
+      });
+    });
   };
 
   const activateTagEditing = () => {
@@ -242,7 +273,7 @@ export function CardItem({
   }, [card.content, editor]);
 
   useEffect(() => {
-    if (!isEditing || !isSelected || card.title !== 'Untitled') {
+    if (!isEditing || !isSelected || card.title.trim().toLocaleLowerCase() !== DEFAULT_CARD_TITLE) {
       didFocusDefaultTitleRef.current = false;
       return;
     }
@@ -251,14 +282,14 @@ export function CardItem({
     didFocusDefaultTitleRef.current = true;
     requestAnimationFrame(() => {
       titleInputRef.current?.focus();
-      titleInputRef.current?.select();
+      titleInputRef.current?.setSelectionRange(titleInputRef.current.value.length, titleInputRef.current.value.length);
     });
   }, [card.title, isEditing, isSelected]);
 
   useEffect(() => {
     if (!editor || editor.isDestroyed || !isEditing || !isSelected || isDisplayedCollapsed || card.isContentMasked) return;
     if (pendingManualFocusRef.current) return;
-    if (card.title === 'Untitled') return;
+    if (card.title.trim().toLocaleLowerCase() === DEFAULT_CARD_TITLE) return;
 
     const activeElement = document.activeElement;
     if (
@@ -273,6 +304,11 @@ export function CardItem({
       editor.commands.focus('end');
     });
   }, [card.isContentMasked, editor, isDisplayedCollapsed, isEditing, isSelected]);
+
+  useEffect(() => {
+    if (!isEditing || !isDisplayedCollapsed) return;
+    onStopEditing();
+  }, [isDisplayedCollapsed, isEditing, onStopEditing]);
 
   useEffect(() => {
     if (!isSelected) {
@@ -350,6 +386,7 @@ export function CardItem({
         readOnly={!isEditing || isDisplayedCollapsed}
         onMouseDown={activateTitleEditing}
         onChange={(event) => onTitleChange(card.id, event.target.value)}
+        onKeyDown={handleTitleKeyDown}
         onBlur={handleTitleBlur}
         onFocus={() => {
           onSelect();
@@ -389,7 +426,11 @@ export function CardItem({
             onActivate={activateTagEditing}
             action={
               isSelected && !isPoppedOut ? (
-                <div className="card-footer-actions">
+                <div
+                  className="card-footer-actions"
+                  onMouseDown={(event) => event.stopPropagation()}
+                  onClick={(event) => event.stopPropagation()}
+                >
                   <button
                     type="button"
                     className="card-footer-action card-collapse-handle"
@@ -407,7 +448,9 @@ export function CardItem({
                     type="button"
                     className="card-footer-action card-resize-handle"
                     aria-label="Resize card height"
-                    onMouseDown={startResize}
+                    onMouseDown={(event) => {
+                      startResize(event);
+                    }}
                   >
                     <svg viewBox="0 0 16 16" aria-hidden="true" className="card-footer-action__icon">
                       <path d="M4 5.25A.75.75 0 0 1 4.75 4.5h6.5a.75.75 0 0 1 0 1.5h-6.5A.75.75 0 0 1 4 5.25Z" fill="currentColor" />

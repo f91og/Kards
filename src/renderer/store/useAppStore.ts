@@ -1,5 +1,5 @@
 import { create } from 'zustand';
-import { buildCardExcerpt, type Card } from '../../shared/models/card';
+import { DEFAULT_CARD_TITLE, buildCardExcerpt, type Card } from '../../shared/models/card';
 import {
   deleteCard,
   createCard,
@@ -216,6 +216,10 @@ export const useAppStore = create<AppState>((set, get) => ({
     await refreshCards(set, get, 'append');
   },
   addCard: async () => {
+    if (get().cards.some((card) => card.title.trim().toLocaleLowerCase() === DEFAULT_CARD_TITLE)) {
+      return;
+    }
+
     const card = await createCard();
     if (!card) return;
 
@@ -343,13 +347,19 @@ export const useAppStore = create<AppState>((set, get) => ({
     const fallbackCard = await deleteCard(id);
 
     set((state) => {
+      const deletedCardIndex = state.cards.findIndex((card) => card.id === id);
       const filteredCards = state.cards.filter((card) => card.id !== id);
       const nextCards =
         fallbackCard && matchesSearch(fallbackCard, state.searchQuery) ? sortCards([fallbackCard, ...filteredCards], state.sortMode) : filteredCards;
+      const shouldMoveSelection = state.selectedCardId === id;
+      const previousCard = deletedCardIndex > 0 ? state.cards[deletedCardIndex - 1] : null;
+      const nextSelectedCardId = shouldMoveSelection ? previousCard?.id ?? nextCards[0]?.id ?? null : state.selectedCardId;
       syncLoadedCount(nextCards);
 
       return {
         cards: nextCards,
+        selectedCardId: nextSelectedCardId,
+        editingCardId: state.editingCardId === id ? null : state.editingCardId,
         titleErrors: {
           ...state.titleErrors,
           [id]: undefined,

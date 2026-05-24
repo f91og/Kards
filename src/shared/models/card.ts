@@ -15,6 +15,7 @@ export interface CardRow {
 
 export type CardContentFormat = 'html';
 export type CardSortMode = 'created' | 'recent-opened';
+export const DEFAULT_CARD_TITLE = 'new card';
 
 export interface Card {
   id: string;

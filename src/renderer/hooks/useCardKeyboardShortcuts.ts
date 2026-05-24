@@ -43,6 +43,10 @@ export function useCardKeyboardShortcuts({
   openSelectedCardInLargeMode,
 }: UseCardKeyboardShortcutsParams) {
   useEffect(() => {
+    const selectedCard = selectedCardId ? cards.find((card) => card.id === selectedCardId) ?? null : null;
+    const isSelectedCardCollapsed = !isLargeMode && Boolean(selectedCard?.isCollapsed);
+    const isActivelyEditing = Boolean(editingCardId && !isSelectedCardCollapsed);
+
     const selectFirstCard = () => {
       if (cards.length > 0) {
         selectCard(cards[0].id);
@@ -80,6 +84,13 @@ export function useCardKeyboardShortcuts({
         return true;
       }
 
+      if (action === 'collapse-card' && selectedCardId) {
+        void updateCardCollapsed(selectedCardId, true).catch((error) => {
+          console.error('Failed to collapse selected card', error);
+        });
+        return true;
+      }
+
       if (action === 'open-large-card') {
         openSelectedCardInLargeMode();
         return true;
@@ -94,11 +105,10 @@ export function useCardKeyboardShortcuts({
     };
 
     const handleCardInteractionKey = (event: KeyboardEvent, interactionEvent: CardInteractionEvent) => {
-      const selectedCard = selectedCardId ? cards.find((card) => card.id === selectedCardId) ?? null : null;
       const action = resolveCardInteractionAction(interactionEvent, {
         hasSelectedCard: selectedCard !== null,
-        isCollapsed: !isLargeMode && Boolean(selectedCard?.isCollapsed),
-        isEditing: Boolean(editingCardId),
+        isCollapsed: isSelectedCardCollapsed,
+        isEditing: isActivelyEditing,
         isLargeMode,
       });
 
@@ -180,7 +190,7 @@ export function useCardKeyboardShortcuts({
         return;
       }
 
-      if (editingCardId || isSearchFocused || cards.length === 0) return;
+      if (isActivelyEditing || isSearchFocused || cards.length === 0) return;
       if (event.key === '/') {
         event.preventDefault();
         setIsSearchFocused(true);
@@ -189,6 +199,15 @@ export function useCardKeyboardShortcuts({
       }
       if (event.key === 'j' || event.key === 'l') {
         handleDirectionalLargeModeKey(event);
+        return;
+      }
+      if (event.key === ' ') {
+        if (isLargeMode) {
+          event.preventDefault();
+          return;
+        }
+
+        handleCardInteractionKey(event, 'space');
         return;
       }
       if (event.key === 'Enter') {
