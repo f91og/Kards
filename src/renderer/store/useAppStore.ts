@@ -270,7 +270,7 @@ export const useAppStore = create<AppState>((set, get) => ({
         ...state.titleErrors,
         [id]: undefined,
       },
-      cards: state.cards.map((card) => (card.id === id ? { ...card, title } : card)),
+      cards: state.cards.map((card) => (card.id === id && card.title !== title ? { ...card, title } : card)),
     }));
   },
   validateCardTitle: async (id) => {
@@ -307,6 +307,8 @@ export const useAppStore = create<AppState>((set, get) => ({
     }));
   },
   updateCardContent: async (id, content) => {
+    if (findCard(get().cards, id)?.content === content) return;
+
     await updatePersistedCard(set, get, id, (card) => ({
       ...card,
       content,

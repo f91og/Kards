@@ -1,4 +1,4 @@
-import { useEffect, useLayoutEffect, useState, type CSSProperties, type RefObject } from 'react';
+import { useCallback, useEffect, useLayoutEffect, useRef, useState, type CSSProperties, type RefObject } from 'react';
 import { useLargeModeWindowBounds } from '@/hooks/useLargeModeWindowBounds';
 import { getLargeModeDirectionForRail, type LargeModeDirection } from '@/lib/largeMode';
 
@@ -19,6 +19,7 @@ export function useLargeModeLayout({
   const [largeModeRailWidth, setLargeModeRailWidth] = useState<number | null>(null);
   const [largeModeDirection, setLargeModeDirection] = useState<LargeModeDirection>('right');
   const [workspaceEditorStyle, setWorkspaceEditorStyle] = useState<CSSProperties | undefined>(undefined);
+  const normalRailWidthRef = useRef<number | null>(null);
 
   useLargeModeWindowBounds(isLargeMode, largeModeDirection);
 
@@ -67,31 +68,39 @@ export function useLargeModeLayout({
     };
   }, [leftRailRef]);
 
-  useLayoutEffect(() => {
-    const syncRailWidth = () => {
-      const nextRailWidth = leftRailRef.current?.getBoundingClientRect().width ?? null;
-      setLargeModeRailWidth((currentRailWidth) => {
-        if (currentRailWidth === nextRailWidth) return currentRailWidth;
-        return nextRailWidth;
-      });
-    };
-
-    syncRailWidth();
-
+  const rememberNormalRailWidth = useCallback(() => {
     if (isLargeMode) return;
 
+    const nextRailWidth = leftRailRef.current?.getBoundingClientRect().width ?? null;
+    if (!nextRailWidth) return;
+
+    normalRailWidthRef.current = nextRailWidth;
+    setLargeModeRailWidth((currentRailWidth) => {
+      if (currentRailWidth === nextRailWidth) return currentRailWidth;
+      return nextRailWidth;
+    });
+  }, [isLargeMode, leftRailRef]);
+
+  useLayoutEffect(() => {
+    rememberNormalRailWidth();
+
     const leftRail = leftRailRef.current;
-    if (!leftRail || typeof ResizeObserver === 'undefined') return;
+    if (isLargeMode || !leftRail || typeof ResizeObserver === 'undefined') return;
 
     const resizeObserver = new ResizeObserver(() => {
-      syncRailWidth();
+      rememberNormalRailWidth();
     });
 
     resizeObserver.observe(leftRail);
     return () => {
       resizeObserver.disconnect();
     };
-  }, [isLargeMode, leftRailRef]);
+  }, [isLargeMode, leftRailRef, rememberNormalRailWidth]);
+
+  useLayoutEffect(() => {
+    if (!isLargeMode || largeModeRailWidth || !normalRailWidthRef.current) return;
+    setLargeModeRailWidth(normalRailWidthRef.current);
+  }, [isLargeMode, largeModeRailWidth]);
 
   useEffect(() => {
     const updateWorkspaceEditorStyle = () => {
@@ -128,8 +137,12 @@ export function useLargeModeLayout({
 
     updateWorkspaceEditorStyle();
     window.addEventListener('resize', updateWorkspaceEditorStyle);
+    window.addEventListener('focus', updateWorkspaceEditorStyle);
+    document.addEventListener('visibilitychange', updateWorkspaceEditorStyle);
     return () => {
       window.removeEventListener('resize', updateWorkspaceEditorStyle);
+      window.removeEventListener('focus', updateWorkspaceEditorStyle);
+      document.removeEventListener('visibilitychange', updateWorkspaceEditorStyle);
     };
   }, [appShellRef, largeModeDirection, largeModeRailWidth]);
 

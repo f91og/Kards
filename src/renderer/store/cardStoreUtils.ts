@@ -38,7 +38,7 @@ export function matchesSearch(card: Card, keyword: string): boolean {
   const normalizedKeyword = normalizeKeyword(keyword).toLocaleLowerCase();
   if (normalizedKeyword === '') return true;
 
-  const haystack = [card.title, card.tags.join(' '), card.excerpt].join(' ').toLocaleLowerCase();
+  const haystack = [card.title, card.tags.join(' '), card.excerpt, card.content].join(' ').toLocaleLowerCase();
   return haystack.includes(normalizedKeyword);
 }
 

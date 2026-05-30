@@ -8,7 +8,11 @@ import {
   type MouseEvent as ReactMouseEvent,
 } from 'react';
 import { TagInput } from '@/components/TagInput';
-import { useCardEditor } from '@/hooks/useCardEditor';
+import {
+  buildDocumentEditorContent,
+  splitDocumentEditorContent,
+  useCardEditor,
+} from '@/hooks/useCardEditor';
 import { useResizableEditorHeight } from '@/hooks/useResizableEditorHeight';
 import { copyCardContentToClipboard } from '@/lib/clipboard';
 import { DEFAULT_CARD_TITLE, htmlToPlainText, type Card } from '../../shared/models/card';
@@ -252,12 +256,16 @@ export function CardItem({
 
   const editor = useCardEditor({
     cardId: card.id,
+    title: card.title,
     content: card.content,
     isEditing,
     isSelected,
+    isDocumentMode: isPoppedOut,
     onSelect,
     onRequestEdit: activateContentEditing,
     onCloseMenu: closeMenu,
+    onTitleChange: (title) => onTitleChange(card.id, title),
+    onTitleBlur: () => onTitleBlur(card.id),
     onContentChange: (content) => onContentChange(card.id, content),
   });
 
@@ -268,9 +276,16 @@ export function CardItem({
 
   useEffect(() => {
     if (!editor || editor.isDestroyed) return;
+    if (isPoppedOut) {
+      const currentDocument = splitDocumentEditorContent(editor.getHTML());
+      if (currentDocument.title === card.title && currentDocument.content === card.content) return;
+      editor.commands.setContent(buildDocumentEditorContent(card.title, card.content), { emitUpdate: false });
+      return;
+    }
+
     if (editor.getHTML() === card.content) return;
     editor.commands.setContent(card.content, { emitUpdate: false });
-  }, [card.content, editor]);
+  }, [card.content, card.title, editor, isPoppedOut]);
 
   useEffect(() => {
     if (!isEditing || !isSelected || card.title.trim().toLocaleLowerCase() !== DEFAULT_CARD_TITLE) {
@@ -289,7 +304,6 @@ export function CardItem({
   useEffect(() => {
     if (!editor || editor.isDestroyed || !isEditing || !isSelected || isDisplayedCollapsed || card.isContentMasked) return;
     if (pendingManualFocusRef.current) return;
-    if (card.title.trim().toLocaleLowerCase() === DEFAULT_CARD_TITLE) return;
 
     const activeElement = document.activeElement;
     if (
@@ -301,9 +315,15 @@ export function CardItem({
 
     requestAnimationFrame(() => {
       if (editor.isDestroyed) return;
+      if (isPoppedOut) {
+        editor.commands.focus('end');
+        return;
+      }
+
+      if (card.title.trim().toLocaleLowerCase() === DEFAULT_CARD_TITLE) return;
       editor.commands.focus('end');
     });
-  }, [card.isContentMasked, editor, isDisplayedCollapsed, isEditing, isSelected]);
+  }, [card.isContentMasked, card.title, editor, isDisplayedCollapsed, isEditing, isPoppedOut, isSelected]);
 
   useEffect(() => {
     if (!isEditing || !isDisplayedCollapsed) return;
@@ -347,6 +367,28 @@ export function CardItem({
     };
   }, [contextMenuPosition]);
 
+  const titleField = (
+    <>
+      <input
+        ref={titleInputRef}
+        className={`card-field card-field--title${titleError ? ' card-field--error' : ''}`}
+        value={card.title}
+        readOnly={!isEditing || isDisplayedCollapsed}
+        onMouseDown={activateTitleEditing}
+        onChange={(event) => onTitleChange(card.id, event.target.value)}
+        onKeyDown={handleTitleKeyDown}
+        onBlur={handleTitleBlur}
+        onFocus={() => {
+          onSelect();
+          closeMenu();
+        }}
+        placeholder="Card title"
+      />
+
+      {titleError ? <div className="card-error">{titleError}</div> : null}
+    </>
+  );
+
   return (
     <article
       ref={articleRef}
@@ -379,23 +421,7 @@ export function CardItem({
         </div>
       ) : null}
 
-      <input
-        ref={titleInputRef}
-        className={`card-field card-field--title${titleError ? ' card-field--error' : ''}`}
-        value={card.title}
-        readOnly={!isEditing || isDisplayedCollapsed}
-        onMouseDown={activateTitleEditing}
-        onChange={(event) => onTitleChange(card.id, event.target.value)}
-        onKeyDown={handleTitleKeyDown}
-        onBlur={handleTitleBlur}
-        onFocus={() => {
-          onSelect();
-          closeMenu();
-        }}
-        placeholder="Card title"
-      />
-
-      {titleError ? <div className="card-error">{titleError}</div> : null}
+      {!isPoppedOut ? titleField : null}
 
       <div ref={cardBodyRef} className={`card-item__body${isDisplayedCollapsed ? ' card-item__body--collapsed' : ''}`}>
         {isDisplayedCollapsed ? null : (
@@ -409,6 +435,8 @@ export function CardItem({
             )}
           </div>
         )}
+
+        {isPoppedOut && titleError ? <div className="card-error">{titleError}</div> : null}
 
         {!isDisplayedCollapsed ? (
           <TagInput

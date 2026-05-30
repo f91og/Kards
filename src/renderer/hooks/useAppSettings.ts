@@ -15,6 +15,7 @@ const THEME_STORAGE_KEY = 'kards-theme';
 const TITLE_FONT_SIZE_STORAGE_KEY = 'kards-title-font-size';
 const CONTENT_FONT_SIZE_STORAGE_KEY = 'kards-content-font-size';
 const WINDOW_OPACITY_STORAGE_KEY = 'kards-window-opacity-v2';
+const AUTO_COLLAPSE_STORAGE_KEY = 'kards-auto-collapse-large-card';
 
 function createNumberStoredStateOptions(fallback: number) {
   return {
@@ -49,6 +50,7 @@ export function useAppSettings() {
     DEFAULT_WINDOW_OPACITY,
     createNumberStoredStateOptions(DEFAULT_WINDOW_OPACITY),
   );
+  const [autoCollapse, setAutoCollapse] = useStoredState<boolean>(AUTO_COLLAPSE_STORAGE_KEY, false);
 
   useEffect(() => {
     if (!window.kardsWindow) {
@@ -126,6 +128,8 @@ export function useAppSettings() {
   return {
     settingsRef,
     settingsFields,
+    autoCollapse,
+    setAutoCollapse,
     themeMode,
     isPinned,
     isSettingsOpen,

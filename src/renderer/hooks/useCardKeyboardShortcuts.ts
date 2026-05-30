@@ -1,4 +1,4 @@
-import { useEffect, type RefObject } from 'react';
+import { useEffect } from 'react';
 import {
   resolveCardInteractionAction,
   type CardInteractionAction,
@@ -14,8 +14,8 @@ type UseCardKeyboardShortcutsParams = {
   isLargeMode: boolean;
   largeModeDirection: LargeModeDirection;
   isSearchFocused: boolean;
-  searchInputRef: RefObject<HTMLInputElement>;
-  setIsSearchFocused: (isFocused: boolean) => void;
+  onFocusSearch: () => void;
+  onCommitSearchSelection: () => boolean;
   addCard: () => Promise<void>;
   selectCard: (cardId: string) => void;
   startEditingCard: (cardId: string) => void;
@@ -32,8 +32,8 @@ export function useCardKeyboardShortcuts({
   isLargeMode,
   largeModeDirection,
   isSearchFocused,
-  searchInputRef,
-  setIsSearchFocused,
+  onFocusSearch,
+  onCommitSearchSelection,
   addCard,
   selectCard,
   startEditingCard,
@@ -46,12 +46,6 @@ export function useCardKeyboardShortcuts({
     const selectedCard = selectedCardId ? cards.find((card) => card.id === selectedCardId) ?? null : null;
     const isSelectedCardCollapsed = !isLargeMode && Boolean(selectedCard?.isCollapsed);
     const isActivelyEditing = Boolean(editingCardId && !isSelectedCardCollapsed);
-
-    const selectFirstCard = () => {
-      if (cards.length > 0) {
-        selectCard(cards[0].id);
-      }
-    };
 
     const moveSelection = (direction: 'next' | 'previous') => {
       const currentIndex = cards.findIndex((card) => card.id === selectedCardId);
@@ -178,11 +172,11 @@ export function useCardKeyboardShortcuts({
         return;
       }
 
-      if (event.key === 'Escape' && isSearchFocused) {
-        event.preventDefault();
-        setIsSearchFocused(false);
-        selectFirstCard();
-        searchInputRef.current?.blur();
+      if (isSearchFocused) {
+        if ((event.key === 'Enter' && !event.isComposing) || event.key === 'Escape') {
+          if (!onCommitSearchSelection()) return;
+          event.preventDefault();
+        }
         return;
       }
 
@@ -190,13 +184,14 @@ export function useCardKeyboardShortcuts({
         return;
       }
 
-      if (isActivelyEditing || isSearchFocused || cards.length === 0) return;
+      if (isActivelyEditing) return;
       if (event.key === '/') {
         event.preventDefault();
-        setIsSearchFocused(true);
-        searchInputRef.current?.focus();
+        onFocusSearch();
         return;
       }
+
+      if (cards.length === 0) return;
       if (event.key === 'j' || event.key === 'l') {
         handleDirectionalLargeModeKey(event);
         return;
@@ -232,11 +227,11 @@ export function useCardKeyboardShortcuts({
     isLargeMode,
     largeModeDirection,
     isSearchFocused,
+    onCommitSearchSelection,
+    onFocusSearch,
     openSelectedCardInLargeMode,
-    searchInputRef,
     selectCard,
     selectedCardId,
-    setIsSearchFocused,
     startEditingCard,
     stopEditingCard,
     updateCardCollapsed,

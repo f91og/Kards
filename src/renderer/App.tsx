@@ -8,7 +8,7 @@ import { useInfiniteCardScroll } from '@/hooks/useInfiniteCardScroll';
 import { useLargeModeController } from '@/hooks/useLargeModeController';
 import { useAppStore } from '@/store/useAppStore';
 import { collectUniqueTags } from '../shared/models/card';
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 export default function App() {
   const appShellRef = useRef<HTMLElement | null>(null);
@@ -56,6 +56,8 @@ export default function App() {
   const {
     settingsRef,
     settingsFields,
+    autoCollapse,
+    setAutoCollapse,
     themeMode,
     isPinned,
     isSettingsOpen,
@@ -66,6 +68,29 @@ export default function App() {
   const normalizedQuery = searchQuery.trim().toLocaleLowerCase();
   const allTags = useMemo(() => collectUniqueTags(cards.map((card) => card.tags)), [cards]);
   const showTagDropdown = isSearchFocused && normalizedQuery === '' && allTags.length > 0;
+  const focusSearch = useCallback(() => {
+    setIsSearchFocused(true);
+    searchInputRef.current?.focus();
+  }, []);
+  const leaveSearch = useCallback(() => {
+    setIsSearchFocused(false);
+    searchInputRef.current?.blur();
+  }, []);
+  const commitSearchSelection = useCallback(() => {
+    const firstCard = cards[0];
+    if (!firstCard) return false;
+
+    leaveSearch();
+    selectCard(firstCard.id);
+    return true;
+  }, [cards, leaveSearch, selectCard]);
+  const selectCardFromInteraction = useCallback(
+    (cardId: string) => {
+      leaveSearch();
+      selectCard(cardId);
+    },
+    [leaveSearch, selectCard],
+  );
   const {
     buildCardItemProps,
     buildListCardItemProps,
@@ -85,7 +110,7 @@ export default function App() {
     appShellRef,
     leftRailRef,
     setSearchQuery,
-    selectCard,
+    selectCard: selectCardFromInteraction,
     startEditingCard,
     stopEditingCard,
     openLargeMode,
@@ -151,10 +176,10 @@ export default function App() {
     isLargeMode,
     largeModeDirection,
     isSearchFocused,
-    searchInputRef,
-    setIsSearchFocused,
+    onFocusSearch: focusSearch,
+    onCommitSearchSelection: commitSearchSelection,
     addCard,
-    selectCard,
+    selectCard: selectCardFromInteraction,
     startEditingCard,
     stopEditingCard,
     updateCardCollapsed,
@@ -171,6 +196,19 @@ export default function App() {
     loadMoreCards,
   });
 
+  useEffect(() => {
+    if (!autoCollapse || !isLargeMode) return;
+
+    const handleWindowBlur = () => {
+      closeLargeModeAndCollapseSelectedCard();
+    };
+
+    window.addEventListener('blur', handleWindowBlur);
+    return () => {
+      window.removeEventListener('blur', handleWindowBlur);
+    };
+  }, [autoCollapse, closeLargeModeAndCollapseSelectedCard, isLargeMode]);
+
   const leftRail = (
     <div ref={leftRailRef} className="app-rail" style={leftRailStyle}>
       <div className="app-topbar">
@@ -179,6 +217,7 @@ export default function App() {
           isPinned={isPinned}
           isLargeMode={isLargeMode}
           isSettingsOpen={isSettingsOpen}
+          autoCollapse={autoCollapse}
           settingsFields={settingsFields}
           settingsRef={settingsRef}
           onAddCard={addCard}
@@ -189,6 +228,7 @@ export default function App() {
           onToggleThemeMode={toggleThemeMode}
           onTogglePin={togglePin}
           onToggleSettingsOpen={toggleSettingsOpen}
+          onAutoCollapseChange={setAutoCollapse}
         />
 
         <SearchBox

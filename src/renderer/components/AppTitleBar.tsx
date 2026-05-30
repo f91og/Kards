@@ -15,6 +15,7 @@ type AppTitleBarProps = {
   isPinned: boolean;
   isLargeMode: boolean;
   isSettingsOpen: boolean;
+  autoCollapse: boolean;
   settingsFields: readonly SettingsField[];
   settingsRef: RefObject<HTMLDivElement>;
   onAddCard: () => void;
@@ -23,6 +24,7 @@ type AppTitleBarProps = {
   onToggleThemeMode: () => void;
   onTogglePin: () => Promise<void>;
   onToggleSettingsOpen: () => void;
+  onAutoCollapseChange: (value: boolean) => void;
 };
 
 export function AppTitleBar({
@@ -30,6 +32,7 @@ export function AppTitleBar({
   isPinned,
   isLargeMode,
   isSettingsOpen,
+  autoCollapse,
   settingsFields,
   settingsRef,
   onAddCard,
@@ -38,6 +41,7 @@ export function AppTitleBar({
   onToggleThemeMode,
   onTogglePin,
   onToggleSettingsOpen,
+  onAutoCollapseChange,
 }: AppTitleBarProps) {
   return (
     <header className="window-titlebar">
@@ -155,6 +159,16 @@ export function AppTitleBar({
                 <span className="window-settings__value">{field.formatValue(field.value)}</span>
               </label>
             ))}
+
+            <label className="window-settings__checkbox-field">
+              <input
+                className="window-settings__checkbox"
+                type="checkbox"
+                checked={autoCollapse}
+                onChange={(event) => onAutoCollapseChange(event.target.checked)}
+              />
+              <span className="window-settings__label">自动收起</span>
+            </label>
           </div>
         ) : null}
       </div>
