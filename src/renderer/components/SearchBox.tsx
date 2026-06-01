@@ -85,6 +85,12 @@ export function SearchBox({
                   type="button"
                   className="app-search-tag"
                   onMouseDown={(event) => event.preventDefault()}
+                  onKeyDown={(event) => {
+                    if ((event.key !== 'Enter' || event.nativeEvent.isComposing) && event.key !== ' ') return;
+                    event.preventDefault();
+                    event.stopPropagation();
+                    onTagSelect(tag);
+                  }}
                   onClick={() => onTagSelect(tag)}
                 >
                   {tag}

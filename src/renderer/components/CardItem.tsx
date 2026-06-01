@@ -19,11 +19,18 @@ import { DEFAULT_CARD_TITLE, htmlToPlainText, type Card } from '../../shared/mod
 
 const CONTEXT_MENU_WIDTH = 80;
 const CONTEXT_MENU_HEIGHT = 170;
+const MIN_FILL_EDITOR_HEIGHT_PX = 48;
+const CARD_LIST_TITLE_PEEK_PX = 58;
 
 type CardContextMenuItem = {
   label: string;
   action: () => void;
   tone?: 'danger';
+};
+
+type CardItemUiMode = {
+  editorHeight: number | null;
+  isManualEditorHeight: boolean;
 };
 
 export type CardItemProps = {
@@ -74,7 +81,12 @@ export function CardItem({
   const pendingTitleToContentFocusRef = useRef(false);
   const pointerDownInsideCardRef = useRef(false);
   const didFocusDefaultTitleRef = useRef(false);
+  const previousCardEditorHeightRef = useRef(card.editorHeight);
   const [contextMenuPosition, setContextMenuPosition] = useState<{ x: number; y: number } | null>(null);
+  const [cardItemUiMode, setCardItemUiMode] = useState<CardItemUiMode>({
+    editorHeight: null,
+    isManualEditorHeight: false,
+  });
 
   const closeMenu = () => {
     setContextMenuPosition(null);
@@ -85,13 +97,26 @@ export function CardItem({
     editorHeight: card.editorHeight,
     onEditorHeightChange,
     onBeforeResize: closeMenu,
+    onResize: (nextEditorHeight) => {
+      setCardItemUiMode({
+        editorHeight: nextEditorHeight,
+        isManualEditorHeight: true,
+      });
+    },
   });
+
+  const displayedEditorHeight = cardItemUiMode.editorHeight ?? editorHeight;
 
   const toggleCollapsed = () => {
     closeMenu();
     stopResize();
     onStopEditing();
     onCollapsedChange(card.id, !isDisplayedCollapsed);
+  };
+
+  const startManualResize = (event: ReactMouseEvent<HTMLButtonElement>) => {
+    const startHeight = displayedEditorHeight;
+    startResize(event, startHeight);
   };
 
   const copyCardContent = async () => {
@@ -117,7 +142,7 @@ export function CardItem({
   };
 
   const activateTitleEditing = (event: ReactMouseEvent<HTMLInputElement>) => {
-    if (event.button !== 0) return;
+    if (event.button !== 0 || event.ctrlKey) return;
 
     if (!ensureSelected()) {
       event.preventDefault();
@@ -130,7 +155,7 @@ export function CardItem({
   };
 
   const handleCardPointerDown = (event: ReactMouseEvent<HTMLElement>) => {
-    if (event.button !== 0) return;
+    if (event.button !== 0 || event.ctrlKey) return;
 
     pointerDownInsideCardRef.current = true;
     requestAnimationFrame(() => {
@@ -139,7 +164,7 @@ export function CardItem({
 
     const target = event.target;
     if (!(target instanceof Element)) return;
-    if (target.closest('.card-context-menu, .card-footer-action')) return;
+    if (target.closest('.card-context-menu, .card-footer-action, .card-masked-content')) return;
 
     if (!isSelected) {
       onSelect();
@@ -275,6 +300,16 @@ export function CardItem({
   }, [editor, isEditing]);
 
   useEffect(() => {
+    if (previousCardEditorHeightRef.current === card.editorHeight) return;
+    previousCardEditorHeightRef.current = card.editorHeight;
+    if (!cardItemUiMode.isManualEditorHeight || isDisplayedCollapsed || isPoppedOut) return;
+    setCardItemUiMode((currentUiMode) => ({
+      ...currentUiMode,
+      editorHeight: card.editorHeight,
+    }));
+  }, [card.editorHeight, cardItemUiMode.isManualEditorHeight, isDisplayedCollapsed, isPoppedOut]);
+
+  useEffect(() => {
     if (!editor || editor.isDestroyed) return;
     if (isPoppedOut) {
       const currentDocument = splitDocumentEditorContent(editor.getHTML());
@@ -326,11 +361,6 @@ export function CardItem({
   }, [card.isContentMasked, card.title, editor, isDisplayedCollapsed, isEditing, isPoppedOut, isSelected]);
 
   useEffect(() => {
-    if (!isEditing || !isDisplayedCollapsed) return;
-    onStopEditing();
-  }, [isDisplayedCollapsed, isEditing, onStopEditing]);
-
-  useEffect(() => {
     if (!isSelected) {
       closeMenu();
     }
@@ -367,13 +397,99 @@ export function CardItem({
     };
   }, [contextMenuPosition]);
 
+  useEffect(() => {
+    if (isPoppedOut || isDisplayedCollapsed) {
+      setCardItemUiMode((currentUiMode) => ({
+        editorHeight: null,
+        isManualEditorHeight: currentUiMode.isManualEditorHeight,
+      }));
+      return;
+    }
+
+    if (!isSelected) {
+      return;
+    }
+
+    if (cardItemUiMode.isManualEditorHeight) {
+      return;
+    }
+
+    let animationFrameId = 0;
+
+    const updateFillEditorHeight = (shouldAlignCard = false) => {
+      cancelAnimationFrame(animationFrameId);
+      animationFrameId = requestAnimationFrame(() => {
+        const articleElement = articleRef.current;
+        const bodyElement = cardBodyRef.current;
+        if (!articleElement || !bodyElement) return;
+
+        const scrollContainer = articleElement.closest<HTMLElement>('.app-rail');
+        const containerRect = scrollContainer?.getBoundingClientRect();
+        const stickyTopbarRect = scrollContainer?.querySelector<HTMLElement>('.app-topbar')?.getBoundingClientRect();
+        const listViewportTop = Math.max(containerRect?.top ?? 0, stickyTopbarRect?.bottom ?? 0);
+        const listViewportBottom = containerRect?.bottom ?? window.innerHeight;
+        const articleRect = articleElement.getBoundingClientRect();
+        const bodyRect = bodyElement.getBoundingClientRect();
+        const bodyChromeHeight = Array.from(bodyElement.children).reduce((height, child) => {
+          if (child instanceof HTMLElement && !child.classList.contains('single-pane-editor')) {
+            return height + child.offsetHeight;
+          }
+
+          return height;
+        }, 0);
+        const titleAndErrorHeight = bodyRect.top - articleRect.top;
+        const nextHeight = Math.max(
+          MIN_FILL_EDITOR_HEIGHT_PX,
+          Math.floor(
+            listViewportBottom -
+              listViewportTop -
+              CARD_LIST_TITLE_PEEK_PX * 2 -
+              titleAndErrorHeight -
+              bodyChromeHeight,
+          ),
+        );
+
+        setCardItemUiMode((currentUiMode) =>
+          currentUiMode.editorHeight === nextHeight
+            ? currentUiMode
+            : {
+                editorHeight: nextHeight,
+                isManualEditorHeight: false,
+              },
+        );
+
+        if (shouldAlignCard && scrollContainer) {
+          animationFrameId = requestAnimationFrame(() => {
+            const nextArticleRect = articleElement.getBoundingClientRect();
+            scrollContainer.scrollBy({
+              top: nextArticleRect.top - (listViewportTop + CARD_LIST_TITLE_PEEK_PX),
+            });
+          });
+        }
+      });
+    };
+
+    updateFillEditorHeight(true);
+
+    const scrollContainer = articleRef.current?.closest<HTMLElement>('.app-rail');
+    const updateWithoutAlignment = () => updateFillEditorHeight(false);
+    scrollContainer?.addEventListener('scroll', updateWithoutAlignment, { passive: true });
+    window.addEventListener('resize', updateWithoutAlignment);
+
+    return () => {
+      cancelAnimationFrame(animationFrameId);
+      scrollContainer?.removeEventListener('scroll', updateWithoutAlignment);
+      window.removeEventListener('resize', updateWithoutAlignment);
+    };
+  }, [card.tags.length, cardItemUiMode.isManualEditorHeight, isDisplayedCollapsed, isPoppedOut, isSelected, titleError]);
+
   const titleField = (
     <>
       <input
         ref={titleInputRef}
         className={`card-field card-field--title${titleError ? ' card-field--error' : ''}`}
         value={card.title}
-        readOnly={!isEditing || isDisplayedCollapsed}
+        readOnly={!isEditing}
         onMouseDown={activateTitleEditing}
         onChange={(event) => onTitleChange(card.id, event.target.value)}
         onKeyDown={handleTitleKeyDown}
@@ -392,7 +508,7 @@ export function CardItem({
   return (
     <article
       ref={articleRef}
-      className={`card-item${titleError ? ' card-item--error' : ''}${isSelected ? ' card-item--selected' : ''}${isEditing ? ' card-item--editing' : ''}${isPoppedOut ? ' card-item--popped' : ''}`}
+      className={`card-item${titleError ? ' card-item--error' : ''}${isSelected ? ' card-item--selected' : ''}${isEditing ? ' card-item--editing' : ''}${isPoppedOut ? ' card-item--popped' : ''}${!isDisplayedCollapsed ? ' card-item--expanded' : ''}`}
       onMouseDown={handleCardPointerDown}
       onContextMenu={handleContextMenu}
     >
@@ -425,7 +541,7 @@ export function CardItem({
 
       <div ref={cardBodyRef} className={`card-item__body${isDisplayedCollapsed ? ' card-item__body--collapsed' : ''}`}>
         {isDisplayedCollapsed ? null : (
-          <div className="single-pane-editor" style={isPoppedOut ? undefined : { height: `${editorHeight}px` }}>
+          <div className="single-pane-editor" style={isPoppedOut ? undefined : { height: `${displayedEditorHeight}px` }}>
             {card.isContentMasked ? (
               <div className="card-masked-content" onMouseDown={() => onSelect()}>
                 {maskedContent || '******'}
@@ -476,9 +592,7 @@ export function CardItem({
                     type="button"
                     className="card-footer-action card-resize-handle"
                     aria-label="Resize card height"
-                    onMouseDown={(event) => {
-                      startResize(event);
-                    }}
+                    onMouseDown={startManualResize}
                   >
                     <svg viewBox="0 0 16 16" aria-hidden="true" className="card-footer-action__icon">
                       <path d="M4 5.25A.75.75 0 0 1 4.75 4.5h6.5a.75.75 0 0 1 0 1.5h-6.5A.75.75 0 0 1 4 5.25Z" fill="currentColor" />

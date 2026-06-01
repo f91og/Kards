@@ -7,14 +7,13 @@ import {
   getCardById,
   getCardSortMode,
   getCardsPage,
-  getAllCards,
   getWindowBounds,
   insertCard,
   saveCardSortMode,
   saveWindowBounds,
   updateCard,
 } from './db/dbHelper.js';
-import { DEFAULT_CARD_TITLE, type Card, type CardSortMode, type CardUpdate } from './shared/models/card.js';
+import { type CardSortMode, type CardUpdate, type NewCard } from './shared/models/card.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const isDev = !app.isPackaged;
@@ -30,44 +29,9 @@ function emitWindowBoundsChanged(window: BrowserWindow): void {
   window.webContents.send('window:bounds-changed', { x, y, width, height });
 }
 
-function createDefaultCard(position: number = 1): Card | null {
-  const id = insertCard({
-    title: DEFAULT_CARD_TITLE,
-    content: '',
-    tags: [],
-    position,
-    editorHeight: DEFAULT_EDITOR_HEIGHT,
-    isCollapsed: false,
-  });
-  return getCardById(id);
-}
-
-function getOrCreateCards(): Card[] {
-  const cards = getAllCards();
-  if (cards.length > 0) return cards;
-
-  const defaultCards = [
-    createDefaultCard(2),
-    (() => {
-      const id = insertCard({
-        title: 'React Tips',
-        content: '',
-        tags: ['react', 'frontend'],
-        position: 1,
-        editorHeight: DEFAULT_EDITOR_HEIGHT,
-        isCollapsed: false,
-      });
-      return getCardById(id);
-    })(),
-  ].filter((card): card is Card => card !== null);
-
-  return defaultCards;
-}
-
-function getNextCardPosition(): number {
-  const cards = getAllCards();
-  const maxPosition = cards.reduce((currentMax, card) => Math.max(currentMax, card.position), 0);
-  return maxPosition + 1;
+function emitWindowFocusChanged(window: BrowserWindow): void {
+  if (window.isDestroyed()) return;
+  window.webContents.send('window:focus-changed', window.isFocused());
 }
 
 function flushWindowBounds(window: BrowserWindow): void {
@@ -129,6 +93,11 @@ function createWindow(): void {
     void shell.openExternal(url);
   });
 
+  mainWindow.webContents.on('did-finish-load', () => {
+    if (!mainWindow) return;
+    emitWindowFocusChanged(mainWindow);
+  });
+
   if (isDev) {
     mainWindow.loadURL('http://localhost:5173');
     mainWindow.webContents.openDevTools();
@@ -153,6 +122,16 @@ function createWindow(): void {
   mainWindow.on('move', () => {
     if (!mainWindow || mainWindow.isMinimized() || mainWindow.isMaximized()) return;
     emitWindowBoundsChanged(mainWindow);
+  });
+
+  mainWindow.on('focus', () => {
+    if (!mainWindow) return;
+    emitWindowFocusChanged(mainWindow);
+  });
+
+  mainWindow.on('blur', () => {
+    if (!mainWindow) return;
+    emitWindowFocusChanged(mainWindow);
   });
 
   mainWindow.on('close', () => {
@@ -244,11 +223,6 @@ ipcMain.handle('window:set-bounds', (event, bounds: { width: number; height: num
 });
 
 ipcMain.handle('cards:list', (_event, options?: { limit?: number; offset?: number; keyword?: string | null; sortMode?: CardSortMode }) => {
-  const cards = getAllCards();
-  if (cards.length === 0) {
-    getOrCreateCards();
-  }
-
   return getCardsPage(options?.limit ?? 20, options?.offset ?? 0, options?.keyword, options?.sortMode ?? 'created');
 });
 
@@ -262,8 +236,17 @@ ipcMain.handle('settings:set-card-sort-mode', (_event, sortMode: CardSortMode) =
   return nextSortMode;
 });
 
-ipcMain.handle('cards:create', () => {
-  return createDefaultCard(getNextCardPosition());
+ipcMain.handle('cards:create', (_event, card?: NewCard) => {
+  if (!card) return null;
+
+  const id = insertCard({
+    ...card,
+    position: card.position ?? 0,
+    editorHeight: card.editorHeight ?? DEFAULT_EDITOR_HEIGHT,
+    isCollapsed: card.isCollapsed ?? false,
+  });
+
+  return getCardById(id);
 });
 
 ipcMain.handle('cards:update', (_event, card: CardUpdate) => {
@@ -274,9 +257,7 @@ ipcMain.handle('cards:update', (_event, card: CardUpdate) => {
 
 ipcMain.handle('cards:delete', (_event, id: string) => {
   deleteCard(id);
-  const nextCards = getAllCards();
-  if (nextCards.length > 0) return null;
-  return createDefaultCard(1);
+  return null;
 });
 
 app.on('ready', createWindow);

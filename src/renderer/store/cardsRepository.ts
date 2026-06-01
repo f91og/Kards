@@ -1,4 +1,4 @@
-import type { Card, CardSortMode, CardUpdate } from '../../shared/models/card';
+import type { Card, CardSortMode, CardUpdate, NewCard } from '../../shared/models/card';
 
 const CARDS_PAGE_SIZE = 20;
 
@@ -23,9 +23,9 @@ export async function listCards(options?: ListCardsOptions): Promise<Card[]> {
   });
 }
 
-export async function createCard(): Promise<Card | null> {
+export async function createCard(card?: NewCard): Promise<Card | null> {
   if (!window.kardsCards) return null;
-  return window.kardsCards.create();
+  return window.kardsCards.create(card);
 }
 
 export async function updateCard(card: CardUpdate): Promise<Card | null> {

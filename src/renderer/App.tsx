@@ -17,6 +17,7 @@ export default function App() {
   const searchRef = useRef<HTMLDivElement | null>(null);
   const searchInputRef = useRef<HTMLInputElement | null>(null);
   const [isSearchFocused, setIsSearchFocused] = useState(false);
+  const [isWindowFocused, setIsWindowFocused] = useState(() => document.hasFocus());
   const {
     cards,
     titleErrors,
@@ -132,6 +133,36 @@ export default function App() {
     }
   }, [clearCardFocus, isSearchFocused]);
 
+  const handleWindowFocusChanged = useCallback(
+    (isFocused: boolean) => {
+      setIsWindowFocused(isFocused);
+
+      if (!isFocused && autoCollapse && isLargeMode) {
+        closeLargeModeAndCollapseSelectedCard();
+      }
+    },
+    [autoCollapse, closeLargeModeAndCollapseSelectedCard, isLargeMode],
+  );
+
+  useEffect(() => {
+    const handleWindowFocus = () => {
+      handleWindowFocusChanged(true);
+    };
+    const handleWindowBlur = () => {
+      handleWindowFocusChanged(false);
+    };
+
+    window.addEventListener('focus', handleWindowFocus);
+    window.addEventListener('blur', handleWindowBlur);
+    const removeWindowFocusChanged = window.kardsWindow?.onFocusChanged?.(handleWindowFocusChanged);
+
+    return () => {
+      window.removeEventListener('focus', handleWindowFocus);
+      window.removeEventListener('blur', handleWindowBlur);
+      removeWindowFocusChanged?.();
+    };
+  }, [handleWindowFocusChanged]);
+
   useEffect(() => {
     if (cards.length === 0) {
       resetCardInteractionState();
@@ -196,19 +227,6 @@ export default function App() {
     loadMoreCards,
   });
 
-  useEffect(() => {
-    if (!autoCollapse || !isLargeMode) return;
-
-    const handleWindowBlur = () => {
-      closeLargeModeAndCollapseSelectedCard();
-    };
-
-    window.addEventListener('blur', handleWindowBlur);
-    return () => {
-      window.removeEventListener('blur', handleWindowBlur);
-    };
-  }, [autoCollapse, closeLargeModeAndCollapseSelectedCard, isLargeMode]);
-
   const leftRail = (
     <div ref={leftRailRef} className="app-rail" style={leftRailStyle}>
       <div className="app-topbar">
@@ -258,7 +276,7 @@ export default function App() {
   );
 
   return (
-    <main ref={appShellRef} className="app-shell">
+    <main ref={appShellRef} className={`app-shell${isWindowFocused ? ' app-shell--focused' : ''}`}>
       {leftRail}
 
       <LargeCardPane

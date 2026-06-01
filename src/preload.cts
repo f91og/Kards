@@ -1,5 +1,5 @@
 import { contextBridge, ipcRenderer } from 'electron';
-import type { Card, CardSortMode, CardUpdate } from './shared/models/card.js';
+import type { Card, CardSortMode, CardUpdate, NewCard } from './shared/models/card.js';
 
 contextBridge.exposeInMainWorld('kardsWindow', {
   togglePin: (): Promise<boolean> => ipcRenderer.invoke('window:toggle-pin') as Promise<boolean>,
@@ -20,12 +20,21 @@ contextBridge.exposeInMainWorld('kardsWindow', {
       ipcRenderer.removeListener('window:bounds-changed', wrappedListener);
     };
   },
+  onFocusChanged: (listener: (isFocused: boolean) => void): (() => void) => {
+    const wrappedListener = (_event: unknown, isFocused: boolean) => {
+      listener(isFocused);
+    };
+    ipcRenderer.on('window:focus-changed', wrappedListener);
+    return () => {
+      ipcRenderer.removeListener('window:focus-changed', wrappedListener);
+    };
+  },
 });
 
 contextBridge.exposeInMainWorld('kardsCards', {
   list: (options?: { limit?: number; offset?: number; keyword?: string | null; sortMode?: CardSortMode }): Promise<Card[]> =>
     ipcRenderer.invoke('cards:list', options) as Promise<Card[]>,
-  create: (): Promise<Card | null> => ipcRenderer.invoke('cards:create') as Promise<Card | null>,
+  create: (card?: NewCard): Promise<Card | null> => ipcRenderer.invoke('cards:create', card) as Promise<Card | null>,
   update: (card: CardUpdate): Promise<Card | null> => ipcRenderer.invoke('cards:update', card) as Promise<Card | null>,
   delete: (id: string): Promise<Card | null> => ipcRenderer.invoke('cards:delete', id) as Promise<Card | null>,
 });

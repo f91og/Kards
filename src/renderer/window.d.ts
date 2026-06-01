@@ -1,4 +1,4 @@
-import type { Card, CardSortMode, CardUpdate } from '../shared/models/card';
+import type { Card, CardSortMode, CardUpdate, NewCard } from '../shared/models/card';
 
 export {};
 
@@ -19,10 +19,11 @@ declare global {
       setOpacity: (opacity: number) => Promise<number>;
       setBounds: (bounds: { width: number; height: number; x?: number; y?: number }) => Promise<KardsWindowBounds | null>;
       onBoundsChanged: (listener: (bounds: KardsWindowBounds) => void) => () => void;
+      onFocusChanged: (listener: (isFocused: boolean) => void) => () => void;
     };
     kardsCards: {
       list: (options?: { limit?: number; offset?: number; keyword?: string | null; sortMode?: CardSortMode }) => Promise<Card[]>;
-      create: () => Promise<Card | null>;
+      create: (card?: NewCard) => Promise<Card | null>;
       update: (card: CardUpdate) => Promise<Card | null>;
       delete: (id: string) => Promise<Card | null>;
     };

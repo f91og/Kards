@@ -75,7 +75,11 @@ export function useCardEditor({
         class: `editor-content${isDocumentMode ? ' editor-content--document' : ''}${isEditing ? ' editor-content--editing' : ' editor-content--readonly'}`,
       },
       handleDOMEvents: {
-        mousedown: () => {
+        mousedown: (_view, event) => {
+          if (event.button !== 0 || event.ctrlKey) {
+            return false;
+          }
+
           if (!isSelected) {
             onSelect();
             return true;

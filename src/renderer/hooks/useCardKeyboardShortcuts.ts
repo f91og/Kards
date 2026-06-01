@@ -7,6 +7,14 @@ import {
 import type { LargeModeDirection } from '@/lib/largeMode';
 import type { Card } from '../../shared/models/card';
 
+function isTextEditingTarget(target: EventTarget | null): boolean {
+  if (!(target instanceof HTMLElement)) return false;
+
+  return Boolean(
+    target.closest('input, textarea, select, [contenteditable="true"], .ProseMirror'),
+  );
+}
+
 type UseCardKeyboardShortcutsParams = {
   cards: Card[];
   selectedCardId: string | null;
@@ -157,6 +165,7 @@ export function useCardKeyboardShortcuts({
 
     const handleKeyDown = (event: KeyboardEvent) => {
       const key = event.key.toLocaleLowerCase();
+      const isEditingText = isTextEditingTarget(event.target);
 
       if (event.metaKey && !event.ctrlKey && !event.altKey && (key === 'j' || key === 'l')) {
         event.preventDefault();
@@ -184,7 +193,7 @@ export function useCardKeyboardShortcuts({
         return;
       }
 
-      if (isActivelyEditing) return;
+      if (isActivelyEditing && isEditingText) return;
       if (event.key === '/') {
         event.preventDefault();
         onFocusSearch();
@@ -197,6 +206,11 @@ export function useCardKeyboardShortcuts({
         return;
       }
       if (event.key === ' ') {
+        if (isActivelyEditing) {
+          event.preventDefault();
+          return;
+        }
+
         if (isLargeMode) {
           event.preventDefault();
           return;

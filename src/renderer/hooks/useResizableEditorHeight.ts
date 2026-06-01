@@ -13,6 +13,7 @@ type UseResizableEditorHeightParams = {
   editorHeight: number;
   onEditorHeightChange: (id: string, editorHeight: number) => void;
   onBeforeResize?: () => void;
+  onResize?: (editorHeight: number) => void;
 };
 
 export function useResizableEditorHeight({
@@ -20,6 +21,7 @@ export function useResizableEditorHeight({
   editorHeight,
   onEditorHeightChange,
   onBeforeResize,
+  onResize,
 }: UseResizableEditorHeightParams) {
   const [height, setHeight] = useState(() => normalizeEditorHeight(editorHeight));
   const resizeStateRef = useRef<{ startY: number; startHeight: number } | null>(null);
@@ -43,16 +45,22 @@ export function useResizableEditorHeight({
     const normalizedHeight = Math.max(MIN_EDITOR_HEIGHT_PX, nextHeight);
     heightRef.current = normalizedHeight;
     setHeight(normalizedHeight);
+    onResize?.(normalizedHeight);
   };
 
-  const startResize = (event: ReactMouseEvent<HTMLButtonElement>) => {
+  const startResize = (event: ReactMouseEvent<HTMLButtonElement>, startHeightOverride?: number) => {
     event.preventDefault();
     event.stopPropagation();
     onBeforeResize?.();
 
+    const startHeight = normalizeEditorHeight(startHeightOverride ?? height);
+    heightRef.current = startHeight;
+    setHeight(startHeight);
+    onResize?.(startHeight);
+
     resizeStateRef.current = {
       startY: event.clientY,
-      startHeight: height,
+      startHeight,
     };
 
     window.addEventListener('mousemove', handleResize);

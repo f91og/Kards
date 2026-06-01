@@ -17,6 +17,8 @@
   --danger-bg: rgb(254 242 242);
   --tag-border: rgb(229 231 235);
   --shadow: rgba(28, 25, 23, 0.08);
+  --focus-ring: rgb(250 204 21);
+  --focus-glow: rgba(250, 204, 21, 0.52);
   --link: rgb(3 105 161);
   --card-title-font-size: 0.7rem;
   --card-content-font-size: 0.94rem;
@@ -71,6 +73,8 @@ body[data-theme='dark'] {
   --danger-bg: rgba(127, 29, 29, 0.3);
   --tag-border: rgb(82 82 91);
   --shadow: rgba(0, 0, 0, 0.28);
+  --focus-ring: rgb(250 204 21);
+  --focus-glow: rgba(250, 204, 21, 0.62);
   --link: rgb(125 211 252);
 }
 
@@ -84,6 +88,27 @@ body[data-theme='dark'] {
   padding: 0.18rem 0.35rem 0.9rem;
   position: relative;
   overflow: visible;
+}
+
+.app-shell::before {
+  content: '';
+  position: fixed;
+  inset: 0;
+  z-index: 60;
+  pointer-events: none;
+  border: 2px solid transparent;
+  box-shadow: none;
+  transition:
+    border-color 140ms ease,
+    box-shadow 140ms ease;
+}
+
+.app-shell--focused::before {
+  border-color: var(--focus-ring);
+  box-shadow:
+    inset 0 0 0 1px var(--focus-ring),
+    inset 0 0 18px var(--focus-glow),
+    0 0 18px var(--focus-glow);
 }
 
 .app-rail {
@@ -195,7 +220,7 @@ body[data-theme='dark'] {
   position: absolute;
   top: calc(100% + 0.35rem);
   right: 0;
-  width: 14rem;
+  width: 10rem;
   display: grid;
   gap: 0.6rem;
   padding: 0.7rem;
@@ -233,7 +258,41 @@ body[data-theme='dark'] {
 
 .window-settings__range {
   width: 100%;
-  accent-color: var(--text-soft);
+  height: 0.9rem;
+  appearance: none;
+  -webkit-appearance: none;
+  background: transparent;
+  cursor: pointer;
+}
+
+.window-settings__range::-webkit-slider-runnable-track {
+  height: 1px;
+  border-radius: 999px;
+  background: var(--border-strong);
+}
+
+.window-settings__range::-webkit-slider-thumb {
+  width: 0.56rem;
+  height: 0.56rem;
+  margin-top: calc((1px - 0.56rem) / 2);
+  border: 1px solid var(--text-soft);
+  border-radius: 50%;
+  -webkit-appearance: none;
+  background: var(--surface);
+}
+
+.window-settings__range::-moz-range-track {
+  height: 1px;
+  border-radius: 999px;
+  background: var(--border-strong);
+}
+
+.window-settings__range::-moz-range-thumb {
+  width: 0.56rem;
+  height: 0.56rem;
+  border: 1px solid var(--text-soft);
+  border-radius: 50%;
+  background: var(--surface);
 }
 
 .window-settings__checkbox {
@@ -439,6 +498,10 @@ body[data-theme='dark'] {
 
 .card-item:not(.card-item--popped) {
   max-height: var(--card-max-height);
+}
+
+.card-item--expanded:not(.card-item--popped) {
+  max-height: none;
 }
 
 .card-item--selected {

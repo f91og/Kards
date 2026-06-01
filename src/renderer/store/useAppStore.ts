@@ -17,7 +17,6 @@ import {
   normalizeKeyword,
   sortCards,
   type CardSortMode,
-  validateCardTitle as getCardTitleError,
 } from './cardStoreUtils';
 
 type AppState = {
@@ -65,13 +64,41 @@ type PaginationState = {
 
 const latestPersistRequestByCardId: Record<string, number> = {};
 let nextPersistRequestId = 1;
+const DRAFT_CARD_ID_PREFIX = 'draft-card-';
 const paginationState: PaginationState = {
   loadedCount: 0,
   activeKeyword: '',
   activeSortMode: 'created',
 };
 
+function isDraftCard(card: Card): boolean {
+  return card.id.startsWith(DRAFT_CARD_ID_PREFIX);
+}
+
+function createDraftCard(): Card {
+  const now = new Date().toISOString();
+
+  return {
+    id: `${DRAFT_CARD_ID_PREFIX}${crypto.randomUUID()}`,
+    title: DEFAULT_CARD_TITLE,
+    content: '',
+    contentFormat: 'html',
+    tags: [],
+    excerpt: '',
+    createdAt: now,
+    updatedAt: now,
+    recentOpenedAt: null,
+    isArchived: false,
+    position: 0,
+    editorHeight: 48,
+    isCollapsed: false,
+    isContentMasked: false,
+  };
+}
+
 async function persistCard(card: Card): Promise<Card | null> {
+  if (isDraftCard(card)) return null;
+
   return persistUpdatedCard({
     id: card.id,
     title: card.title,
@@ -216,12 +243,7 @@ export const useAppStore = create<AppState>((set, get) => ({
     await refreshCards(set, get, 'append');
   },
   addCard: async () => {
-    if (get().cards.some((card) => card.title.trim().toLocaleLowerCase() === DEFAULT_CARD_TITLE)) {
-      return;
-    }
-
-    const card = await createCard();
-    if (!card) return;
+    const card = createDraftCard();
 
     set((state) => {
       const shouldClearSearch = !matchesSearch(card, state.searchQuery);
@@ -278,20 +300,72 @@ export const useAppStore = create<AppState>((set, get) => ({
     if (!currentCard) return false;
 
     const normalizedTitle = currentCard.title.trim();
-    const error = getCardTitleError(get().cards, id, normalizedTitle);
+
+    if (normalizedTitle === '') {
+      set((state) => {
+        const filteredCards = state.cards.filter((card) => card.id !== id);
+        const deletedCardIndex = state.cards.findIndex((card) => card.id === id);
+        const previousCard = deletedCardIndex > 0 ? state.cards[deletedCardIndex - 1] : null;
+        const shouldMoveSelection = state.selectedCardId === id;
+        syncLoadedCount(filteredCards);
+
+        return {
+          cards: filteredCards,
+          selectedCardId: shouldMoveSelection ? previousCard?.id ?? filteredCards[0]?.id ?? null : state.selectedCardId,
+          editingCardId: state.editingCardId === id ? null : state.editingCardId,
+          titleErrors: {
+            ...state.titleErrors,
+            [id]: undefined,
+          },
+        };
+      });
+
+      return false;
+    }
 
     set((state) => ({
       titleErrors: {
         ...state.titleErrors,
-        [id]: error,
+        [id]: undefined,
       },
-      cards:
-        error === undefined
-          ? state.cards.map((card) => (card.id === id ? { ...card, title: normalizedTitle } : card))
-          : state.cards,
+      cards: state.cards.map((card) => (card.id === id ? { ...card, title: normalizedTitle } : card)),
     }));
 
-    if (error !== undefined) return false;
+    if (isDraftCard(currentCard)) {
+      const cardToCreate = {
+        ...currentCard,
+        title: normalizedTitle,
+        updatedAt: new Date().toISOString(),
+      };
+      const persistedCard = await createCard({
+        title: cardToCreate.title,
+        content: cardToCreate.content,
+        tags: cardToCreate.tags,
+        createdAt: cardToCreate.createdAt,
+        updatedAt: cardToCreate.updatedAt,
+        recentOpenedAt: cardToCreate.recentOpenedAt,
+        isArchived: cardToCreate.isArchived,
+        position: cardToCreate.position,
+        editorHeight: cardToCreate.editorHeight,
+        isCollapsed: cardToCreate.isCollapsed,
+        isContentMasked: cardToCreate.isContentMasked,
+      });
+
+      if (persistedCard) {
+        set((state) => ({
+          cards: state.cards.map((card) => (card.id === id ? persistedCard : card)),
+          selectedCardId: state.selectedCardId === id ? persistedCard.id : state.selectedCardId,
+          editingCardId: state.editingCardId === id ? persistedCard.id : state.editingCardId,
+          titleErrors: {
+            ...state.titleErrors,
+            [id]: undefined,
+            [persistedCard.id]: undefined,
+          },
+        }));
+      }
+
+      return Boolean(persistedCard);
+    }
 
     await updatePersistedCard(set, get, id, (card) => ({
       ...card,
