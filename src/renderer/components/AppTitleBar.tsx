@@ -16,6 +16,7 @@ type AppTitleBarProps = {
   isLargeMode: boolean;
   isSettingsOpen: boolean;
   autoCollapse: boolean;
+  pinAcrossWorkspaces: boolean;
   settingsFields: readonly SettingsField[];
   settingsRef: RefObject<HTMLDivElement>;
   onAddCard: () => void;
@@ -25,6 +26,7 @@ type AppTitleBarProps = {
   onTogglePin: () => Promise<void>;
   onToggleSettingsOpen: () => void;
   onAutoCollapseChange: (value: boolean) => void;
+  onPinAcrossWorkspacesChange: (value: boolean) => void;
 };
 
 export function AppTitleBar({
@@ -33,6 +35,7 @@ export function AppTitleBar({
   isLargeMode,
   isSettingsOpen,
   autoCollapse,
+  pinAcrossWorkspaces,
   settingsFields,
   settingsRef,
   onAddCard,
@@ -42,6 +45,7 @@ export function AppTitleBar({
   onTogglePin,
   onToggleSettingsOpen,
   onAutoCollapseChange,
+  onPinAcrossWorkspacesChange,
 }: AppTitleBarProps) {
   return (
     <header className="window-titlebar">
@@ -168,6 +172,16 @@ export function AppTitleBar({
                 onChange={(event) => onAutoCollapseChange(event.target.checked)}
               />
               <span className="window-settings__label">自动收起</span>
+            </label>
+
+            <label className="window-settings__checkbox-field">
+              <input
+                className="window-settings__checkbox"
+                type="checkbox"
+                checked={pinAcrossWorkspaces}
+                onChange={(event) => onPinAcrossWorkspacesChange(event.target.checked)}
+              />
+              <span className="window-settings__label">跨桌面置顶</span>
             </label>
           </div>
         ) : null}

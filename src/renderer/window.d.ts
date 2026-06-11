@@ -12,7 +12,9 @@ declare global {
 
   interface Window {
     kardsWindow: {
-      togglePin: () => Promise<boolean>;
+      togglePin: (pinAcrossWorkspaces: boolean) => Promise<boolean>;
+      setPinAcrossWorkspaces: (enabled: boolean) => Promise<boolean>;
+      getPinAcrossWorkspaces: () => Promise<boolean>;
       getPinState: () => Promise<boolean>;
       getBounds: () => Promise<KardsWindowBounds | null>;
       getWorkArea: () => Promise<KardsWindowBounds | null>;

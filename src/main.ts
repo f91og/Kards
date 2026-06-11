@@ -1,4 +1,4 @@
-import { app, BrowserWindow, ipcMain, screen, shell } from 'electron';
+import { app, BrowserWindow, ipcMain, Menu, screen, shell } from 'electron';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import {
@@ -7,9 +7,11 @@ import {
   getCardById,
   getCardSortMode,
   getCardsPage,
+  getPinAcrossWorkspaces,
   getWindowBounds,
   insertCard,
   saveCardSortMode,
+  savePinAcrossWorkspaces,
   saveWindowBounds,
   updateCard,
 } from './db/dbHelper.js';
@@ -22,6 +24,25 @@ const DEFAULT_EDITOR_HEIGHT = 48;
 
 let mainWindow: BrowserWindow | null;
 let windowBoundsSaveTimeout: NodeJS.Timeout | null = null;
+
+function setMacAccessoryMode(enabled: boolean): void {
+  if (process.platform !== 'darwin') return;
+
+  if (enabled) {
+    Menu.setApplicationMenu(null);
+    app.setActivationPolicy('accessory');
+    return;
+  }
+
+  app.setActivationPolicy('regular');
+  Menu.setApplicationMenu(
+    Menu.buildFromTemplate([
+      { role: 'appMenu' },
+      { role: 'editMenu' },
+      { role: 'windowMenu' },
+    ]),
+  );
+}
 
 function emitWindowBoundsChanged(window: BrowserWindow): void {
   if (window.isDestroyed()) return;
@@ -49,6 +70,25 @@ function scheduleWindowBoundsSave(window: BrowserWindow): void {
     if (window.isDestroyed() || window.isMinimized() || window.isMaximized()) return;
     flushWindowBounds(window);
   }, WINDOW_BOUNDS_SAVE_DELAY_MS);
+}
+
+function setWindowPinned(window: BrowserWindow, pinned: boolean, pinAcrossWorkspaces: boolean): void {
+  if (process.platform === 'darwin') {
+    const visibleOnAllWorkspaces = pinned && pinAcrossWorkspaces;
+    window.setVisibleOnAllWorkspaces(visibleOnAllWorkspaces, {
+      visibleOnFullScreen: visibleOnAllWorkspaces,
+      skipTransformProcessType: true,
+    });
+  }
+
+  const level = process.platform === 'darwin' && pinAcrossWorkspaces
+    ? 'screen-saver'
+    : 'floating';
+  window.setAlwaysOnTop(pinned, pinned ? level : 'normal');
+
+  if (pinned) {
+    window.moveTop();
+  }
 }
 
 function isExternalNavigationUrl(url: string): boolean {
@@ -140,18 +180,38 @@ function createWindow(): void {
   });
 }
 
-ipcMain.handle('window:toggle-pin', (event) => {
+ipcMain.handle('window:toggle-pin', (event, pinAcrossWorkspaces: boolean = true) => {
   const window = BrowserWindow.fromWebContents(event.sender);
   if (!window) return false;
 
   const nextPinnedState = !window.isAlwaysOnTop();
-  window.setAlwaysOnTop(nextPinnedState, nextPinnedState ? 'floating' : 'normal');
-
-  if (nextPinnedState) {
-    window.moveTop();
-  }
+  setWindowPinned(window, nextPinnedState, pinAcrossWorkspaces);
 
   return window.isAlwaysOnTop();
+});
+
+ipcMain.handle('window:set-pin-across-workspaces', (event, enabled: boolean) => {
+  const window = BrowserWindow.fromWebContents(event.sender);
+  if (!window) return false;
+
+  const isPinned = window.isAlwaysOnTop();
+
+  if (process.platform === 'darwin' && enabled) {
+    setMacAccessoryMode(true);
+  }
+
+  setWindowPinned(window, isPinned, enabled);
+
+  if (process.platform === 'darwin' && !enabled) {
+    setMacAccessoryMode(false);
+  }
+
+  savePinAcrossWorkspaces(enabled);
+  return enabled;
+});
+
+ipcMain.handle('window:get-pin-across-workspaces', () => {
+  return getPinAcrossWorkspaces();
 });
 
 ipcMain.handle('window:get-pin-state', (event) => {
@@ -260,7 +320,13 @@ ipcMain.handle('cards:delete', (_event, id: string) => {
   return null;
 });
 
-app.on('ready', createWindow);
+app.on('ready', () => {
+  if (process.platform === 'darwin' && getPinAcrossWorkspaces()) {
+    setMacAccessoryMode(true);
+  }
+
+  createWindow();
+});
 
 app.on('window-all-closed', () => {
   app.quit();

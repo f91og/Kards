@@ -1,6 +1,9 @@
 import StarterKit from '@tiptap/starter-kit';
 import TaskItem from '@tiptap/extension-task-item';
 import TaskList from '@tiptap/extension-task-list';
+import type { Node as ProseMirrorNode, ResolvedPos } from '@tiptap/pm/model';
+import { Selection } from '@tiptap/pm/state';
+import type { Mappable } from '@tiptap/pm/transform';
 import { useEditor } from '@tiptap/react';
 import { CardImage } from '@/lib/tiptapCardImage';
 
@@ -18,6 +21,42 @@ type UseCardEditorParams = {
   onTitleBlur?: () => void;
   onContentChange: (content: string) => void;
 };
+
+class DocumentBodySelection extends Selection {
+  constructor($anchor: ResolvedPos, $head: ResolvedPos) {
+    super($anchor, $head);
+  }
+
+  eq(selection: Selection): boolean {
+    return (
+      selection instanceof DocumentBodySelection &&
+      selection.anchor === this.anchor &&
+      selection.head === this.head
+    );
+  }
+
+  map(doc: ProseMirrorNode, mapping: Mappable): Selection {
+    const anchor = Math.min(mapping.map(this.anchor, 1), doc.content.size);
+    const head = Math.min(mapping.map(this.head, -1), doc.content.size);
+    if (anchor >= head) {
+      return Selection.near(doc.resolve(anchor));
+    }
+
+    return DocumentBodySelection.create(doc, anchor, head);
+  }
+
+  toJSON(): { type: string; anchor: number; head: number } {
+    return {
+      type: 'document-body',
+      anchor: this.anchor,
+      head: this.head,
+    };
+  }
+
+  static create(doc: ProseMirrorNode, anchor: number, head: number): DocumentBodySelection {
+    return new DocumentBodySelection(doc.resolve(anchor), doc.resolve(head));
+  }
+}
 
 function escapeHtml(value: string): string {
   return value
@@ -75,6 +114,33 @@ export function useCardEditor({
         class: `editor-content${isDocumentMode ? ' editor-content--document' : ''}${isEditing ? ' editor-content--editing' : ' editor-content--readonly'}`,
       },
       handleDOMEvents: {
+        keydown: (view, event) => {
+          const isSelectAll =
+            (event.metaKey || event.ctrlKey) &&
+            !event.altKey &&
+            !event.shiftKey &&
+            event.key.toLocaleLowerCase() === 'a';
+
+          if (!isDocumentMode || !isSelectAll) {
+            return false;
+          }
+
+          const titleNode = view.state.doc.firstChild;
+          if (!titleNode) {
+            return false;
+          }
+
+          const contentStart = titleNode.nodeSize;
+          const contentEnd = view.state.doc.content.size;
+
+          event.preventDefault();
+          view.dispatch(
+            view.state.tr.setSelection(
+              DocumentBodySelection.create(view.state.doc, contentStart, contentEnd),
+            ),
+          );
+          return true;
+        },
         mousedown: (_view, event) => {
           if (event.button !== 0 || event.ctrlKey) {
             return false;

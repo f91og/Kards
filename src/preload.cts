@@ -2,7 +2,12 @@ import { contextBridge, ipcRenderer } from 'electron';
 import type { Card, CardSortMode, CardUpdate, NewCard } from './shared/models/card.js';
 
 contextBridge.exposeInMainWorld('kardsWindow', {
-  togglePin: (): Promise<boolean> => ipcRenderer.invoke('window:toggle-pin') as Promise<boolean>,
+  togglePin: (pinAcrossWorkspaces: boolean): Promise<boolean> =>
+    ipcRenderer.invoke('window:toggle-pin', pinAcrossWorkspaces) as Promise<boolean>,
+  setPinAcrossWorkspaces: (enabled: boolean): Promise<boolean> =>
+    ipcRenderer.invoke('window:set-pin-across-workspaces', enabled) as Promise<boolean>,
+  getPinAcrossWorkspaces: (): Promise<boolean> =>
+    ipcRenderer.invoke('window:get-pin-across-workspaces') as Promise<boolean>,
   getPinState: (): Promise<boolean> => ipcRenderer.invoke('window:get-pin-state') as Promise<boolean>,
   getBounds: (): Promise<{ x: number; y: number; width: number; height: number } | null> =>
     ipcRenderer.invoke('window:get-bounds') as Promise<{ x: number; y: number; width: number; height: number } | null>,

@@ -51,6 +51,7 @@ export function useAppSettings() {
     createNumberStoredStateOptions(DEFAULT_WINDOW_OPACITY),
   );
   const [autoCollapse, setAutoCollapse] = useStoredState<boolean>(AUTO_COLLAPSE_STORAGE_KEY, false);
+  const [pinAcrossWorkspaces, setPinAcrossWorkspacesState] = useState(true);
 
   useEffect(() => {
     if (!window.kardsWindow) {
@@ -58,9 +59,18 @@ export function useAppSettings() {
       return;
     }
 
-    window.kardsWindow.getPinState().then(setIsPinned).catch(() => {
-      setIsPinned(false);
-    });
+    Promise.all([
+      window.kardsWindow.getPinState(),
+      window.kardsWindow.getPinAcrossWorkspaces(),
+    ])
+      .then(([nextPinnedState, nextPinAcrossWorkspaces]) => {
+        setIsPinned(nextPinnedState);
+        setPinAcrossWorkspacesState(nextPinAcrossWorkspaces);
+      })
+      .catch((error) => {
+        console.error('Failed to load pin settings', error);
+        setIsPinned(false);
+      });
   }, []);
 
   const closeSettings = () => {
@@ -121,8 +131,27 @@ export function useAppSettings() {
   const togglePin = async () => {
     if (!window.kardsWindow) return;
 
-    const nextState = await window.kardsWindow.togglePin();
-    setIsPinned(nextState);
+    try {
+      const nextState = await window.kardsWindow.togglePin(pinAcrossWorkspaces);
+      setIsPinned(nextState);
+    } catch (error) {
+      console.error('Failed to toggle window pin', error);
+    }
+  };
+
+  const setPinAcrossWorkspaces = async (enabled: boolean) => {
+    if (!window.kardsWindow) return;
+
+    const previousValue = pinAcrossWorkspaces;
+    setPinAcrossWorkspacesState(enabled);
+
+    try {
+      const nextValue = await window.kardsWindow.setPinAcrossWorkspaces(enabled);
+      setPinAcrossWorkspacesState(nextValue);
+    } catch (error) {
+      console.error('Failed to update cross-workspace pin setting', error);
+      setPinAcrossWorkspacesState(previousValue);
+    }
   };
 
   return {
@@ -130,6 +159,8 @@ export function useAppSettings() {
     settingsFields,
     autoCollapse,
     setAutoCollapse,
+    pinAcrossWorkspaces,
+    setPinAcrossWorkspaces,
     themeMode,
     isPinned,
     isSettingsOpen,

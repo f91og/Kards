@@ -1,6 +1,6 @@
 {
   "name": "kards",
-  "version": "1.0.13",
+  "version": "1.0.14",
   "productName": "Kards",
   "description": "",
   "main": "dist/main.js",
@@ -12,6 +12,8 @@
     "dev": "concurrently \"npm run dev:main\" \"npm run dev:renderer\"",
     "dev:main": "tsc src/main.ts src/preload.cts --outDir dist --module nodenext && electron . --dev",
     "dev:renderer": "vite",
+    "postinstall": "electron-builder install-app-deps",
+    "rebuild:native": "electron-builder install-app-deps",
     "build": "npm run typecheck && npm run build:main && vite build",
     "build:main": "tsc src/main.ts src/preload.cts --outDir dist --module nodenext",
     "dist:mac": "npm run build && ELECTRON_BUILDER_CACHE=/tmp/electron-builder-cache npm_config_devdir=/tmp/.electron-gyp electron-builder --mac dmg --publish never && rm -f release/*.blockmap release/latest-mac.yml release/*.zip",

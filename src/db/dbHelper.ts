@@ -18,6 +18,7 @@ const DB_NAME = 'memcards.db';
 const DEFAULT_EDITOR_HEIGHT = 48;
 const SORT_MODE_SETTING_KEY = 'card_sort_mode';
 const WINDOW_BOUNDS_SETTING_KEY = 'window_bounds';
+const PIN_ACROSS_WORKSPACES_SETTING_KEY = 'pin_across_workspaces';
 
 let db: DatabaseInstance | null = null;
 
@@ -132,6 +133,14 @@ export function saveCardSortMode(sortMode: CardSortMode): void {
 
 export function getCardSortMode(): CardSortMode {
   return getAppSetting(SORT_MODE_SETTING_KEY) === 'recent-opened' ? 'recent-opened' : 'created';
+}
+
+export function savePinAcrossWorkspaces(enabled: boolean): void {
+  saveAppSetting(PIN_ACROSS_WORKSPACES_SETTING_KEY, enabled ? 'true' : 'false');
+}
+
+export function getPinAcrossWorkspaces(): boolean {
+  return getAppSetting(PIN_ACROSS_WORKSPACES_SETTING_KEY) !== 'false';
 }
 
 export function getCardById(id: string): Card | null {

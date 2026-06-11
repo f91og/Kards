@@ -398,6 +398,49 @@ export function CardItem({
   }, [contextMenuPosition]);
 
   useEffect(() => {
+    if (!isPoppedOut || !isSelected || isEditing || card.isContentMasked) return;
+
+    const handleSelectAll = (event: KeyboardEvent) => {
+      const isSelectAll =
+        (event.metaKey || event.ctrlKey) &&
+        !event.altKey &&
+        !event.shiftKey &&
+        event.key.toLocaleLowerCase() === 'a';
+      if (!isSelectAll) return;
+
+      const activeElement = document.activeElement;
+      if (
+        activeElement instanceof HTMLElement &&
+        activeElement !== document.body &&
+        !articleRef.current?.contains(activeElement)
+      ) {
+        return;
+      }
+
+      const editorElement = articleRef.current?.querySelector<HTMLElement>('.ProseMirror');
+      const titleElement = editorElement?.firstElementChild;
+      const firstContentNode = titleElement?.nextSibling;
+      const lastContentNode = editorElement?.lastChild;
+      if (!editorElement || !firstContentNode || !lastContentNode) return;
+
+      event.preventDefault();
+      const selection = window.getSelection();
+      if (!selection) return;
+
+      const range = document.createRange();
+      range.setStartBefore(firstContentNode);
+      range.setEndAfter(lastContentNode);
+      selection.removeAllRanges();
+      selection.addRange(range);
+    };
+
+    window.addEventListener('keydown', handleSelectAll);
+    return () => {
+      window.removeEventListener('keydown', handleSelectAll);
+    };
+  }, [card.isContentMasked, isEditing, isPoppedOut, isSelected]);
+
+  useEffect(() => {
     if (isPoppedOut || isDisplayedCollapsed) {
       setCardItemUiMode((currentUiMode) => ({
         editorHeight: null,

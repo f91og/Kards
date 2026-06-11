@@ -59,6 +59,8 @@ export default function App() {
     settingsFields,
     autoCollapse,
     setAutoCollapse,
+    pinAcrossWorkspaces,
+    setPinAcrossWorkspaces,
     themeMode,
     isPinned,
     isSettingsOpen,
@@ -236,6 +238,7 @@ export default function App() {
           isLargeMode={isLargeMode}
           isSettingsOpen={isSettingsOpen}
           autoCollapse={autoCollapse}
+          pinAcrossWorkspaces={pinAcrossWorkspaces}
           settingsFields={settingsFields}
           settingsRef={settingsRef}
           onAddCard={addCard}
@@ -247,6 +250,7 @@ export default function App() {
           onTogglePin={togglePin}
           onToggleSettingsOpen={toggleSettingsOpen}
           onAutoCollapseChange={setAutoCollapse}
+          onPinAcrossWorkspacesChange={setPinAcrossWorkspaces}
         />
 
         <SearchBox
